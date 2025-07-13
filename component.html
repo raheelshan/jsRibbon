@@ -1,0 +1,358 @@
+<html>
+
+<head>
+    <script src="./jsRibbon-enhance-form.js"></script>
+    <script src="./jsRibbon-component-state.js"></script>
+    <script src="./jsRibbon-component-foreach.js"></script>
+    <script src="./jsRibbon.js"></script>
+
+    <script>
+
+        jsRibbon.autoRegister = true;
+
+        jsRibbon.component('ClickCheck', ($state) => {
+
+            
+            const handleClick = (data) => {
+                console.log($state.firstName)
+            };
+
+            const handleMouseEnter = () => {
+                // console.log('Mouse entered');
+            }
+
+            console.log('regstered');
+
+            return { handleClick, handleMouseEnter };
+        });
+
+
+        jsRibbon.component('FormCheck', () => {
+            const beforeSend = (formEl) => {
+                console.log("⏳ Submitting form...", formEl);
+            };
+
+            const onSuccess = (result) => {
+                console.log("✅ Success response", result);
+            };
+
+            const onError = (error, status) => {
+                console.error("❌ Error", status, error);
+            };
+
+            return { beforeSend, onSuccess, onError };
+        });
+
+        // setTimeout(() => {
+        //     document.getElementById('dynamic-container').innerHTML = `
+        //         <div data-bind="component:Dashboard">
+
+        //         </div>
+        //     `
+        // }, 5000)
+
+        // setTimeout(() => {
+
+        //     document.getElementById('container').innerHTML = `<input data-bind="value: age" value="21" /> Your age: <span data-bind="text: age"> </span>`
+
+        // }, 2000);
+
+        // setTimeout(() => {
+        // let el = document.getElementById('container')
+        // jsRibbon.unregister(el);
+
+        // jsRibbon.reset();
+
+        // }, 7000);
+        // setTimeout(() => {
+        //     console.log(jsRibbon.getComponents())
+        // }, 1000);
+
+
+        // jsRibbon.reset(); // force rescan of DOM
+
+
+
+    </script>
+</head>
+
+
+
+<body>
+
+    <!-- <div data-bind="component:MultiCounter">
+        <div data-bind="foreach:counters, item:counter">
+            <div data-bind="component:Counter">
+                <input type="number" value="9" min="0" max="20" data-bind="value:counter.count" />
+            </div>
+        </div>
+        <span data-bind="text:counters.length"></span>
+    </div> -->
+
+    Form
+    <br>
+    <div data-bind="component:FormCheck">
+        <form method="post" action="/api/products/save" data-bind="submit:ajax, swap: innerHTML" id="formCheck">
+            <input type="text" name="name" id="">
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+    <br>
+
+    Click
+    <br>
+    <div data-bind="component:ClickCheck">
+        <div>
+            <p>First name: <input name="firstName" type="text" data-bind="value: firstName" value="Raheel" /></p>
+            <button type="button" data-bind="click: handleClick, mouseenter: handleMouseEnter">Click Me</button>
+        </div>
+    </div>
+    <br>
+    <!-- 
+        Attribute
+        <br>
+        <div data-bind="component:Attribute">
+            <div data-bind="attr: [ title => title ]">
+                <a data-bind="attr: [ title => title, placeholder => placeholder, href => link ]">Click Me</a>
+                <input name="title" type="text" data-bind="value: title" /><br>
+                <input name="placeholder" type="text" data-bind="value: placeholder" /><br>
+                <input name="link" type="text" data-bind="value: link" /><br>
+                <span data-bind="text:title"></span>
+            </div>
+        </div>
+        <br>
+    
+    
+    
+    
+        Class
+        <br>
+        <div data-bind="component:ClassChecker">
+            <div data-bind="class: [ hidden => isHidden, pink => isPink ]">
+                <input name="firstName" type="text"
+                    data-bind="value: firstName, class: [ hidden => isHidden, pink => isPink ]" value="Raheel" />
+    
+            </div>
+    
+            <input type="checkbox" data-bind="value:isHidden" /> Toggle Hide/Show
+            <input type="checkbox" data-bind="value:isPink" /> Toggle Pink/Green
+        </div>
+    
+        HTML
+        <br>
+        <div data-bind="component:HTMLChecker">
+            <textarea name="content" data-bind="value:details, update:blur">
+                <b>Hello</b> <i>world</i>
+            </textarea>
+            <div data-bind="html: details"></div>
+        </div>
+    
+        Visible
+        <br>
+        <div data-bind="component:Visible">
+            <div data-bind="visible: isVisible">
+                <input name="firstName" type="text" data-bind="value: firstName, update:blur" value="Raheel" />
+            </div>
+            <label>
+                <input type="checkbox" data-bind="value:isVisible" /> Visible Mode
+            </label>
+        </div>
+        <br>
+    
+        focus
+        <br>
+        <div data-bind="component:Focus">
+            <input name="firstName" type="text"
+                data-bind="value: firstName, update:blur, focused: isFocused, disabled:isLocked, readonly:isLocked"
+                value="Raheel" />
+            <label>
+                <input type="checkbox" data-bind="value:isFocused" /> Readonly Mode
+            </label>
+        </div>
+        <br>
+    
+        Select
+        <br>
+        <div data-bind="component:CityPicker">
+            <select name="city" id="" data-bind="value:city, update:change, disabled:isLocked, readonly:isLocked">
+                <option value="">Select</option>
+                <option value="Karachi">Karachi</option>
+                <option value="Lahore">Lahore</option>
+                <option value="Quetta">Quetta</option>
+            </select>
+            <span data-bind="text:city"></span>
+            <label>
+                <input type="checkbox" data-bind="value:isLocked" /> Readonly Mode
+            </label>
+        </div>
+    
+        <br>
+        Textarea
+        <br>
+        <div data-bind="component:CityPicker">
+            <textarea name="message" id=" "
+                data-bind="value:message, update:blur, disabled:isLocked, readonly:isLocked"></textarea>
+            <span data-bind="text:message"></span>
+            <label>
+                <input type="checkbox" data-bind="value:isLocked" /> Readonly Mode
+            </label>
+        </div>
+    
+        <br>
+    
+    
+        Dsabled and Readonly
+        <br>
+        <div data-bind="component:FormLock">
+            <input type="text" name="name" data-bind="value:name, readonly:isLocked" />
+            <label>
+                <input type="checkbox" data-bind="value:isLocked" /> Readonly Mode
+            </label>
+            <input type="text" name="email" data-bind="value:email, disabled:isDisabled" />
+    
+            <label>
+                <input type="checkbox" data-bind="value:isDisabled" /> Disable Email Field
+            </label>
+        </div>
+        <br>
+    
+        Checkbox
+        <br>
+        <div data-bind="component:SkillPicker">
+            <label><input type="checkbox" data-bind="toggle:skills" /> Select All</label>
+    
+            <label><input type="checkbox" value="HTML" data-bind="value:skills" /> HTML</label>
+            <label><input type="checkbox" value="CSS" data-bind="value:skills" /> CSS</label>
+            <label><input type="checkbox" value="JS" data-bind="value:skills" /> JavaScript</label>
+    
+            <p>Selected: <span data-bind="text:skills"></span></p>
+        </div>
+    
+        <div data-bind="component:GenderSelector">
+            <label><input type="radio" checked name="gender" value="male" data-bind="value:gender" /> Male</label>
+            <label><input type="radio" name="gender" value="female" data-bind="value:gender" /> Female</label>
+            <p>Selected: <span data-bind="text:gender"></span></p>
+        </div>
+    
+    
+        <div data-bind="component:AcceptForm">
+            <label>
+                <input type="checkbox" data-bind="value:accepted" value="1" />
+                I accept the terms
+            </label>
+            <p>Status: <span data-bind="text:accepted"></span></p>
+        </div>
+        <div data-bind="component:AcceptForm">
+            <label>
+                <input type="checkbox" data-bind="value:accepted" value="0" />
+                I accept the terms
+            </label>
+            <p>Status: <span data-bind="text:accepted"></span></p>
+        </div>
+        <br>
+        Counter 1
+        <br>
+        <div data-bind="component:Counter">
+            <input type="number" value="5" min="0" max="20" data-bind="value:count, update:focusout" />
+            <span data-bind="text:count"></span>
+        </div>
+    
+        <br>
+    
+        Counter 2
+        <br>
+        <div data-bind="component:Counter">
+            <input type="number" value="2" min="1" max="100" data-bind="value:count, update:focusout" />
+            <span data-bind="text:count"></span>
+        </div>
+        <br>
+
+            Text Sample
+            <br>
+            <div data-bind="component:Login">
+                <p>First name: <input name="firstName" type="text"
+                        data-bind="value: firstName, update:blur, disabled:isLocked, readonly:isLocked" value="Raheel" /></p>
+                <p>First name: <input name="lastName" type="text" data-bind="value: lastName, update:blur" value="Shan" /></p>
+                <h2>Hello,
+                    <span data-bind="text: firstName"> </span>
+                    <span data-bind="text: lastName"> </span>
+                </h2>
+        
+                <label>
+                    <input type="checkbox" data-bind="value:isLocked" /> Readonly Mode
+                </label>
+            </div>
+            <br>
+        <div data-bind="component:Login">
+            <p>First name: <input name="firstName" type="text" data-bind="value: firstName, update:keydown"
+                    value="Saleem" /></p>
+            <p>First name: <input name="lastName" type="text" data-bind="value: lastName, update:blur" value="Ahmad" /></p>
+            <h2>Hello, <span data-bind="text: firstName"> </span> <span data-bind="text: lastName"> </span></h2>
+        </div>
+        <br>
+    
+        DateTime
+        <br>
+        <div data-bind="component:DateTime">
+    
+            <input name="tob" type="datetime-local" data-bind="value: tob, update:change" value="" />
+            <span data-bind="text: tob">
+                <input name="dob" type="date" data-bind="value: dob, update:change" value="" />
+                <span data-bind="text: dob">
+                    <hr />
+        </div>
+    
+        <br>
+    
+        Range Sample
+        <br>
+        <div data-bind="component:RangePicker">
+            <div>
+                <input type="range" name="range" min="0" max="50" value="25" data-bind="value: range, update:change">
+                <span data-bind="text: range">
+            </div>
+        </div>
+        <br>
+    
+        Color Sample
+        <br>
+        <div data-bind="component:ColorPicker">
+            <div>
+                <input type="color" name="color" value="#365271" data-bind="value: color, update:change">
+                <span data-bind="text: color">
+            </div>
+        </div>
+        <br>
+    
+        Register
+        <br>
+        <div data-bind="component:Register">
+            <input type="email" name="email" value="" data-bind="value: email, update:change">
+            <span data-bind="text: email">
+        </div>
+        <br>
+    
+        <div data-bind="text:name">
+    
+        </div>
+    
+        <div id="dynamic-container">
+            <div data-bind="component:Sample">
+    
+            </div>
+        </div>
+    
+        <div id="container">
+            <div data-bind="component:Form">
+                <div data-bind="component:InputField">Name</div>
+                <div data-bind="component:SubmitButton">Submit</div>
+            </div>
+        </div>
+        
+        <div data-bind="component:InputField, parent:Form">Name</div>
+            -->
+
+
+</body>
+
+</html>
