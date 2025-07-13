@@ -1,0 +1,2 @@
+# jsRibbon
+Declerative UI library
