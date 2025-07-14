@@ -10,38 +10,47 @@
 
         jsRibbon.autoRegister = true;
 
-        jsRibbon.component('ClickCheck', ($state) => {
-
-            
-            const handleClick = (data) => {
-                console.log($state.firstName)
+        jsRibbon.component('Parent', ($state) => {
+            const show = () => {
+                console.log($state)
             };
-
-            const handleMouseEnter = () => {
-                // console.log('Mouse entered');
-            }
-
-            console.log('regstered');
-
-            return { handleClick, handleMouseEnter };
+            return { show };
         });
 
+        
 
-        jsRibbon.component('FormCheck', () => {
-            const beforeSend = (formEl) => {
-                console.log("⏳ Submitting form...", formEl);
-            };
+        // jsRibbon.component('ClickCheck', ($state) => {
 
-            const onSuccess = (result) => {
-                console.log("✅ Success response", result);
-            };
 
-            const onError = (error, status) => {
-                console.error("❌ Error", status, error);
-            };
+        //     const handleClick = (data) => {
+        //         console.log($state.firstName)
+        //     };
 
-            return { beforeSend, onSuccess, onError };
-        });
+        //     const handleMouseEnter = () => {
+        //         // console.log('Mouse entered');
+        //     }
+
+        //     console.log('regstered');
+
+        //     return { handleClick, handleMouseEnter };
+        // });        
+
+
+        // jsRibbon.component('FormCheck', () => {
+        //     const beforeSend = (formEl) => {
+        //         console.log("⏳ Submitting form...", formEl);
+        //     };
+
+        //     const onSuccess = (result) => {
+        //         console.log("✅ Success response", result);
+        //     };
+
+        //     const onError = (error, status) => {
+        //         console.error("❌ Error", status, error);
+        //     };
+
+        //     return { beforeSend, onSuccess, onError };
+        // });
 
         // setTimeout(() => {
         //     document.getElementById('dynamic-container').innerHTML = `
@@ -80,6 +89,8 @@
 
 <body>
 
+
+
     <!-- <div data-bind="component:MultiCounter">
         <div data-bind="foreach:counters, item:counter">
             <div data-bind="component:Counter">
@@ -88,27 +99,79 @@
         </div>
         <span data-bind="text:counters.length"></span>
     </div> -->
-
-    Form
-    <br>
-    <div data-bind="component:FormCheck">
-        <form method="post" action="/api/products/save" data-bind="submit:ajax, swap: innerHTML" id="formCheck">
-            <input type="text" name="name" id="">
-            <button type="submit">Submit</button>
-        </form>
-    </div>
-    <br>
-
-    Click
-    <br>
-    <div data-bind="component:ClickCheck">
-        <div>
-            <p>First name: <input name="firstName" type="text" data-bind="value: firstName" value="Raheel" /></p>
-            <button type="button" data-bind="click: handleClick, mouseenter: handleMouseEnter">Click Me</button>
+    <div data-bind="component:Parent">
+        <div data-bind="component:Login, expose: [ firstName => first, lastName => last ]">
+            <input type="text" data-bind="value:firstName" />
+            <input type="text" data-bind="value:lastName" />
         </div>
+
+        <button data-bind="click:show">Click Me</button>
+          <span data-bind="text:first"></span>
+  <span data-bind="text:last"></span>
     </div>
-    <br>
+
+
+    <!-- <div data-bind="component:Login">
+        <div data-bind="with: data">
+            <div data-bind="component:Login, context: data, expose: [ firstName , lastName ]">
+                <div>
+                    <p>First name: <input name="firstName" type="text" data-bind="value: firstName" value="Saleem" />
+                    </p>
+                    <p>Last name: <input name="lastName" type="text" data-bind="value: lastName" value="Ahmad" /></p>
+                </div>
+            </div>
+
+            <div data-bind="component:Counter, context: data, expose: [ count ]">
+                <input type="number" value="5" min="0" max="20" data-bind="value:count, update:focusout" />
+            </div>
+        </div>
+
+        <span data-bind="text:data.firstName"></span>
+        <span data-bind="text:data.lastName"></span>
+        <span data-bind="text:data.count"></span>
+    </div> -->
+
+
+    <!-- <div data-bind="component:Login">
+        <div data-bind="with: data">
+            <div data-bind="component:Login, context: data, expose: [ firstName => firstChild, lastName => lastChild ]">
+                <div>
+                    <p>First name: <input name="firstName" type="text" data-bind="value: firstName" value="Saleem" />
+                    </p>
+                    <p>Last name: <input name="lastName" type="text" data-bind="value: lastName" value="Ahmad" /></p>
+                </div>
+            </div>
+
+            <div data-bind="component:Counter, context: data, expose: [ count => total]">
+                <input type="number" value="5" min="0" max="20" data-bind="value:count, update:focusout" />
+            </div>
+        </div>
+
+        <span data-bind="text:data.firstChild"></span>
+        <span data-bind="text:data.lastChild"></span>
+        <span data-bind="text:data.total"></span>
+    </div> -->
+
     <!-- 
+        Form
+        <br>
+        <div data-bind="component:FormCheck">
+            <form method="post" action="/api/products/save" data-bind="submit:ajax, swap: innerHTML" id="formCheck">
+                <input type="text" name="name" id="">
+                <button type="submit">Submit</button>
+            </form>
+        </div>
+        <br>
+    
+        Click
+        <br>
+        <div data-bind="component:ClickCheck">
+            <div>
+                <p>First name: <input name="firstName" type="text" data-bind="value: firstName" value="Raheel" /></p>
+                <button type="button" data-bind="click: handleClick, mouseenter: handleMouseEnter">Click Me</button>
+            </div>
+        </div>
+        <br>
         Attribute
         <br>
         <div data-bind="component:Attribute">
