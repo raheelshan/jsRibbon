@@ -57,10 +57,26 @@
 
     function initializeStateBindings(componentEl, context = {}) {
         const ctx = componentEl.$ctx || context || {};
-        const bindables = componentEl.querySelectorAll('[data-bind]');
         const bindingsMap = [];
         const initialState = {};
         const keyUsageCount = {};
+
+        const allBindings = document.querySelectorAll('[data-bind]');
+        const bindables = [];
+
+        allBindings.forEach(el => {
+            const nearestComponent = el.closest('[data-bind*="component:"]');
+
+            if (nearestComponent === componentEl) {
+                bindables.push(el); // ✅ Inside this specific component
+            } else if (!nearestComponent) {
+                console.warn('⚠️ Found data-bind element outside any component:', el);
+            }
+        });
+
+
+
+
 
         // First pass: collect bindings and count usage        
         bindables.forEach(el => {
@@ -584,46 +600,7 @@
 
         });
 
-        // === EXPOSE logic ===
-        if (componentEl.hasAttribute('data-bind')) {
 
-            const rootBindings = parseBindings(componentEl.getAttribute('data-bind') || '');
-
-            if (rootBindings.expose) {
-                const exposeRaw = rootBindings.expose.trim().replace(/^\[|\]$/g, '').trim();
-                const exposePairs = exposeRaw.split(',').map(x => x.trim());
-
-                const currentState = componentEl.$state;
-                const parentEl = componentEl.parentElement?.closest('[data-bind*="component:"]');
-
-                if (parentEl && parentEl.$state) {
-                    const parentState = parentEl.$state;
-
-                    exposePairs.forEach(pair => {
-                        const [fromKey, toKey] = pair.includes('=>')
-                            ? pair.split(/\s*=>\s*/).map(s => s.trim())
-                            : [pair, pair]; // if no alias, use same name
-
-                        if (fromKey in currentState) {
-                            Object.defineProperty(parentState, toKey, {
-                                get: () => currentState[fromKey],
-                                set: (val) => { currentState[fromKey] = val; },
-                                enumerable: true,
-                                configurable: true,
-                            });
-                        } else {
-                            console.warn(`⚠️ Cannot expose missing key "${fromKey}" from child`, componentEl);
-                        }
-                    });
-                } else {
-                    console.warn(`⚠️ No parent component found to expose to`, componentEl);
-                }
-            }
-
-
-
-
-        }
 
     }
 

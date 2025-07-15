@@ -89,31 +89,6 @@
             window.jsRibbonState.init(el, el.$context);
         }
 
-        // Now that $state is ready, handle expose
-        if (info.expose) {
-            const exposeRaw = info.expose.trim().replace(/^\[|\]$/g, '').trim();
-            const exposePairs = exposeRaw.split(',').map(x => x.trim());
-
-            let parentEl = el.parentElement;
-            while (parentEl && !parentEl.hasAttribute('data-bind')) {
-                parentEl = parentEl.parentElement;
-            }
-
-            if (parentEl?.$ctx) {
-                exposePairs.forEach(pair => {
-                    const [key, alias] = pair.split(/\s*=>\s*/).map(x => x.trim());
-                    const from = key;
-                    const to = alias || key;
-
-                    if (el.$state && from in el.$state) {
-                        parentEl.$ctx[to] = el.$state[from];
-                    } else {
-                        console.warn(`⚠️ Cannot expose key "${from}" from`, el);
-                    }
-                });
-            }
-        }
-
 
         // ✅ 2. Register component methods after state is ready
         const def = window.jsRibbon.components?.[name];
