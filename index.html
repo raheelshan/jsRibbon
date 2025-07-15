@@ -6,79 +6,26 @@
     <script src="./jsRibbon-component-foreach.js"></script>
     <script src="./jsRibbon.js"></script>
 
+    <script src="./test.js"></script>
+
     <script>
 
         jsRibbon.autoRegister = true;
 
         jsRibbon.component('Parent', ($state) => {
             const show = () => {
-                console.log($state)
+                console.log($state);
             };
             return { show };
         });
 
-        
-
-        // jsRibbon.component('ClickCheck', ($state) => {
-
-
-        //     const handleClick = (data) => {
-        //         console.log($state.firstName)
-        //     };
-
-        //     const handleMouseEnter = () => {
-        //         // console.log('Mouse entered');
-        //     }
-
-        //     console.log('regstered');
-
-        //     return { handleClick, handleMouseEnter };
-        // });        
-
-
-        // jsRibbon.component('FormCheck', () => {
-        //     const beforeSend = (formEl) => {
-        //         console.log("⏳ Submitting form...", formEl);
-        //     };
-
-        //     const onSuccess = (result) => {
-        //         console.log("✅ Success response", result);
-        //     };
-
-        //     const onError = (error, status) => {
-        //         console.error("❌ Error", status, error);
-        //     };
-
-        //     return { beforeSend, onSuccess, onError };
-        // });
-
-        // setTimeout(() => {
-        //     document.getElementById('dynamic-container').innerHTML = `
-        //         <div data-bind="component:Dashboard">
-
-        //         </div>
-        //     `
-        // }, 5000)
-
-        // setTimeout(() => {
-
-        //     document.getElementById('container').innerHTML = `<input data-bind="value: age" value="21" /> Your age: <span data-bind="text: age"> </span>`
-
-        // }, 2000);
-
-        // setTimeout(() => {
-        // let el = document.getElementById('container')
-        // jsRibbon.unregister(el);
-
-        // jsRibbon.reset();
-
-        // }, 7000);
-        // setTimeout(() => {
-        //     console.log(jsRibbon.getComponents())
-        // }, 1000);
-
-
-        // jsRibbon.reset(); // force rescan of DOM
+        jsRibbon.component('Login', ($state) => {
+            const show = () => {
+                console.log('Main $state:', $state);
+                console.log('Nested data:', $state.data);
+            };
+            return { show };
+        });
 
 
 
@@ -98,38 +45,41 @@
             </div>
         </div>
         <span data-bind="text:counters.length"></span>
-    </div> -->
+    </div> 
+    
     <div data-bind="component:Parent">
-        <div data-bind="component:Login, expose: [ firstName => first, lastName => last ]">
+        <div data-bind="component:Login">
             <input type="text" data-bind="value:firstName" />
             <input type="text" data-bind="value:lastName" />
         </div>
 
         <button data-bind="click:show">Click Me</button>
-          <span data-bind="text:first"></span>
-  <span data-bind="text:last"></span>
+        <span data-bind="text:firstName"></span>
+        <span data-bind="text:lastName"></span>
     </div>
+    -->
 
 
-    <!-- <div data-bind="component:Login">
-        <div data-bind="with: data">
-            <div data-bind="component:Login, context: data, expose: [ firstName , lastName ]">
-                <div>
-                    <p>First name: <input name="firstName" type="text" data-bind="value: firstName" value="Saleem" />
-                    </p>
-                    <p>Last name: <input name="lastName" type="text" data-bind="value: lastName" value="Ahmad" /></p>
+    <!-- 
+        -->
+        <div data-bind="component:Login">
+            <div data-bind="with: data">
+                <div data-bind="component:Login, context : data ,expose: [ firstName => name ]">
+                    <div>
+                        <p>First name: <input name="firstName" type="text" data-bind="value: firstName" value="Saleem" />
+                        </p>
+                        <p>Last name: <input name="lastName" type="text" data-bind="value: lastName" value="Ahmad" /></p>
+                    </div>
+                </div>    
+                <div data-bind="component:Counter, context : data, expose: [ count ]">
+                    <input type="number" value="5" min="0" max="20" data-bind="value:count, update:focusout" />
                 </div>
-            </div>
-
-            <div data-bind="component:Counter, context: data, expose: [ count ]">
-                <input type="number" value="5" min="0" max="20" data-bind="value:count, update:focusout" />
-            </div>
+                <button data-bind="click:show">Click Me</button>
+        
+                <span data-bind="text:name"></span>
+                <span data-bind="text:count"></span>
+            </div>    
         </div>
-
-        <span data-bind="text:data.firstName"></span>
-        <span data-bind="text:data.lastName"></span>
-        <span data-bind="text:data.count"></span>
-    </div> -->
 
 
     <!-- <div data-bind="component:Login">
@@ -353,7 +303,8 @@
             <h2>Hello, <span data-bind="text: firstName"> </span> <span data-bind="text: lastName"> </span></h2>
         </div>
         <br>
-    
+        -->
+    <!--
         DateTime
         <br>
         <div data-bind="component:DateTime">
