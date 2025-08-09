@@ -1,0 +1,22 @@
+<script>
+
+const user = {
+  name: "Rahim",
+  age: 30
+};
+
+const proxy = new Proxy(user, {
+  get(target, prop) {
+    console.log(`Getting ${prop}`);
+    return target[prop];
+  },
+  set(target, prop, value) {
+    console.log(`Setting ${prop} to ${value}`);
+    target[prop] = value;
+    return true;
+  }
+});
+
+proxy.name;       // Logs: Getting name
+proxy.age = 31;   // Logs: Setting age to 31 
+</script>

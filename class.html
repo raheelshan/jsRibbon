@@ -1,0 +1,38 @@
+<html>
+    <head>
+    
+    <script src="./jsRibbon-enhance-form.js"></script>
+    <script src="./jsRibbon-component-state.js"></script>
+    <script src="./jsRibbon.js"></script>
+
+    <script>
+        jsRibbon.autoRegister = true;
+        console.log(jsRibbon.getComponents());
+    </script>
+    <style>
+        .pink{
+            background-color: pink;
+        }
+        .hidden{
+            display: none;
+        }
+    </style>
+    </head>
+    <body>
+        <div id="container">
+            Class
+            <hr>
+            <div data-bind="component:ClassChecker">
+                <input type="checkbox" data-bind="value:isHidden" id="toggle" /> <label for="toggle">Toggle Hide/Show</label>
+                <input type="checkbox" data-bind="value:isPink"  id="color"/> <label for="color">Toggle Pink/Green</label>
+                <hr>
+                <div data-bind="class: [ hidden => isHidden, pink => isPink ]">
+                    <input name="firstName" type="text"
+                        data-bind="value: firstName, class: [ hidden => isHidden, pink => isPink ]" value="Raheel" />
+        
+                </div>
+        
+            </div>                  
+        </div>
+    </body>
+</html>

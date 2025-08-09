@@ -1,0 +1,28 @@
+<html>
+    <head>
+        <script src="./jsRibbon-enhance-form.js"></script>
+        <script src="./jsRibbon-component-state.js"></script>
+        <script src="./jsRibbon.js"></script>
+
+        <script>
+            jsRibbon.autoRegister = true;
+            setTimeout(() => {
+                document.getElementById('container').innerHTML = 
+                    `
+                    <div data-bind="component:DynamicContent">
+                        <input data-bind="value: age" value="21" /> Your age: <span data-bind="text: age"> </span>
+                    </div>
+                    `;
+            }, 2000);
+        </script>
+    
+    </head>
+    <body>
+        inject Dynamic Content
+        <hr>
+        <div id="container">
+                             
+
+        </div>
+    </body>
+</html>

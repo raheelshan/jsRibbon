@@ -1,0 +1,27 @@
+<html>
+    <head>
+    
+    </head>
+    <script src="./jsRibbon-enhance-form.js"></script>
+    <script src="./jsRibbon-component-state.js"></script>
+    <script src="./jsRibbon.js"></script>
+
+    <script>
+        jsRibbon.autoRegister = true;
+        console.log(jsRibbon.getComponents());
+    </script>
+    <body>
+        <div id="container">
+            Attribute
+            <hr>
+            <div data-bind="component:Attribute">
+                <div data-bind="attr: [ title => title ]">
+                    Title: <input name="title" type="text" data-bind="value: title" /><br>
+                    Placeholder: <input name="placeholder" type="text" data-bind="value: placeholder" /><br>
+                    Link: <input name="link" type="text" data-bind="value: link" /><br>
+                    <a data-bind="attr: [ title => title, placeholder => placeholder, href => link ]">Click Me</a>
+                </div>
+            </div>                 
+        </div>
+    </body>
+</html>

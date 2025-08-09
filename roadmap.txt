@@ -1,0 +1,33 @@
+Observable ------------------------ Done
+value ----------------------------- Done
+text ------------------------------ Done
+disabled -------------------------- Done
+readonly -------------------------- Done
+select/multiselect and textarea --- Done
+focused --------------------------- Done
+visible --------------------------- Done
+html ------------------------------ Done
+class ----------------------------- Done
+attr ------------------------------ Done
+click ----------------------------- Done
+event ----------------------------- Done
+submit ---------------------------- Done
+wrap bindnigs in component -------- Done
+if -------------------------------- Discard
+
+Observable array ----------------------------- Pending
+foreach Observable array--------------------------- Pending
+load state from component if injected by HTML or on load - Pending
+
+expose ---------------------------- Revisit
+with ------------------------------ Pending
+new component mutation replaced by innerHTML ------------ Pending
+parnet and child component: how to pass state  -------- Pending
+----------------
+
+4 Features 
+
+1. Auto inject bindnigs like jquery .on method when new content added
+2. Read state to parent component when new components added as child. No template required
+3. composition tree supported
+4. No need to write javascript by default but still can write if want

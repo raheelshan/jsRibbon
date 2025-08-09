@@ -1,0 +1,31 @@
+<html>
+    <head>
+    
+    </head>
+    <script src="./jsRibbon-enhance-form.js"></script>
+    <script src="./jsRibbon-component-state.js"></script>
+    <script src="./jsRibbon.js"></script>
+
+    <script>
+        jsRibbon.autoRegister = true;
+        console.log(jsRibbon.getComponents());
+    </script>
+    <body>
+        <div id="container">
+            Radio Binding
+            <div data-bind="component:GenderSelector">
+                <label><input type="radio" name="gender" value="male" data-bind="value:gender" /> Male</label>
+                <label><input type="radio" name="gender" value="female" data-bind="value:gender" /> Female</label>
+                <p>Selected: <span data-bind="text:gender"></span></p>
+            </div>
+            <hr />
+            Default Selected
+            <div data-bind="component:GenderSelector">
+                <label><input type="radio" checked name="gender" value="male" data-bind="value:gender" /> Male</label>
+                <label><input type="radio" name="gender" value="female" data-bind="value:gender" /> Female</label>
+                <p>Selected: <span data-bind="text:gender"></span></p>
+            </div>
+            <hr />                                                                                                
+        </div>
+    </body>
+</html>

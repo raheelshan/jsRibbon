@@ -1,0 +1,25 @@
+<html>
+    <head>
+    <script src="./jsRibbon-enhance-form.js"></script>
+    <script src="./jsRibbon-component-state.js"></script>
+    <script src="./jsRibbon.js"></script>
+
+    <script>
+        jsRibbon.autoRegister = true;
+        console.log(jsRibbon.getComponents());
+    </script>
+    
+    </head>
+    <body>
+        <div id="container">
+            HTML
+            <hr>
+            <div data-bind="component:HTMLChecker">
+                <textarea name="content" data-bind="value:details, update:blur">
+                    <b>Hello</b> <i>world</i>
+                </textarea>
+                <div data-bind="html: details"></div>
+            </div>                   
+        </div>
+    </body>
+</html>

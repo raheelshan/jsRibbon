@@ -131,7 +131,7 @@
             const index = instances.indexOf(el);
             if (index !== -1) {
                 instances.splice(index, 1);
-                // console.log(`🗑️ Component removed: ${name}`, el);
+                console.log(`🗑️ Component removed: ${name}`, el);
             }
 
             if (instances.length === 0) {
@@ -195,7 +195,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         scanAndRegister(document);
         startMutationObserver();
-        // console.log('🔧 Component system initialized with autoRegister = ' + autoRegister);
+        console.log('🔧 Component system initialized with autoRegister = ' + autoRegister);
     });
 
     window.jsRibbon = {
@@ -210,7 +210,7 @@
         },
         set autoRegister(value) {
             autoRegister = !!value;
-            // console.log(`🔁 autoRegister is now ${autoRegister}`);
+            console.log(`🔁 autoRegister is now ${autoRegister}`);
         },
         unregister(el) {
             unregisterComponent(el);
@@ -222,7 +222,7 @@
             componentKeys.clear();
             // Recreate the WeakSet
             initializedElements = new WeakSet();
-            // console.log('♻️ Component system has been reset.');
+            console.log('♻️ Component system has been reset.');
             scanAndRegister(document); // Optional: re-scan after reset
         },
         components: {},

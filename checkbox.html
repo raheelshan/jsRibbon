@@ -1,0 +1,66 @@
+<html>
+    <head>
+    
+    </head>
+    <script src="./jsRibbon-enhance-form.js"></script>
+    <script src="./jsRibbon-component-state.js"></script>
+    <script src="./jsRibbon.js"></script>
+
+    <script>
+        jsRibbon.autoRegister = true;
+        console.log(jsRibbon.getComponents());
+    </script>
+    <body>
+        <div id="container">
+            Checkbox Binding
+            <div data-bind="component:AcceptForm">
+                <label>
+                    <input type="checkbox" data-bind="value:accepted" />
+                    I accept the terms
+                </label>
+                <p>Status: <span data-bind="text:accepted"></span></p>
+            </div>
+            <hr />
+            Checkbox Binding with default selected
+            <div data-bind="component:AcceptForm">
+                <label>
+                    <input type="checkbox" data-bind="value:accepted" checked />
+                    I accept the terms
+                </label>
+                <p>Status: <span data-bind="text:accepted"></span></p>
+            </div>
+            <hr />
+            Readonly and Disabled
+            <div data-bind="component:Login">
+                <p>Readonly: <input name="lastName" type="text" data-bind="value: lastName, readonly:isLocked" value="Shan" /></p>
+                <p>Disabled: <input name="firstName" type="text" data-bind="value: firstName, disabled:isLocked" value="Raheel" /></p>
+                <h2>
+                    Hello, <span data-bind="text: firstName"> </span> <span data-bind="text: lastName"> </span>
+                </h2>
+                <label>
+                    <input type="checkbox" data-bind="value:isLocked" /> Readonly Mode
+                </label>
+            </div>     
+            <hr />
+            Checkbox List
+            <div data-bind="component:SkillPicker">
+                <label><input type="checkbox" data-bind="toggle:skills" /> Select All</label>
+        
+                <label><input type="checkbox" value="HTML" data-bind="value:skills" /> HTML</label>
+                <label><input type="checkbox" value="CSS" data-bind="value:skills" /> CSS</label>
+                <label><input type="checkbox" value="JS" data-bind="value:skills" /> JavaScript</label>
+        
+                <p>Selected: <span data-bind="text:skills"></span></p>
+            </div>   
+            <hr />
+            Focus
+            <br>
+            <div data-bind="component:Focus">
+                <input name="firstName" type="text" data-bind="value: firstName, focused: isFocused" value="Raheel" />
+                <label>
+                    <input type="checkbox" data-bind="value:isFocused" /> Readonly Mode
+                </label>
+        </div>                                                                                                
+        </div>
+    </body>
+</html>

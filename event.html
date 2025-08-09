@@ -1,0 +1,42 @@
+<html>
+
+<head>
+
+    <script src="./jsRibbon-enhance-form.js"></script>
+    <script src="./jsRibbon-component-state.js"></script>
+    <script src="./jsRibbon.js"></script>
+
+    <script>
+        jsRibbon.autoRegister = true;
+        console.log(jsRibbon.getComponents());
+
+        jsRibbon.component('ClickCheck', ($state) => {
+
+            const handleClick = () => {
+                console.log('Main $state:', $state);
+            };
+
+            const handleHover = () => {
+                alert($state.firstName + ' You have hovered');
+            }
+
+            return { handleClick, handleHover };
+        });        
+    </script>
+</head>
+
+<body>
+    <div id="container">
+        Events
+        <hr>
+        <div data-bind="component:ClickCheck">
+            <div>
+                <p>First name: <input name="firstName" type="text" data-bind="value: firstName" value="Raheel" /></p>
+                <button type="button" data-bind="click: handleClick">Click Me</button>
+                <button type="button" data-bind="mouseenter: handleHover">Hover Me</button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

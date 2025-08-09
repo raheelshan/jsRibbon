@@ -1,0 +1,33 @@
+<html>
+    <head>
+    
+    </head>
+    <script src="./jsRibbon-enhance-form.js"></script>
+    <script src="./jsRibbon-component-state.js"></script>
+    <script src="./jsRibbon.js"></script>
+
+    <script>
+        jsRibbon.autoRegister = true;
+        console.log(jsRibbon.getComponents());
+    </script>
+    <body>
+        <div id="container">
+            Form Ajax Submit
+            <hr>
+            <div data-bind="component:FormCheck">
+                <form method="post" action="/api/products/save" data-bind="submit:ajax, swap: innerHTML" id="formCheck">
+                    <input type="text" name="name" id="">
+                    <button type="submit">Submit</button>
+                </form>
+            </div>  
+            Form Default Submit       
+            <hr>
+            <div data-bind="component:FormCheck">
+                <form method="post" action="/api/products/save" data-bind="submit:default, swap: innerHTML" id="formCheck">
+                    <input type="text" name="name" id="">
+                    <button type="submit">Submit</button>
+                </form>
+            </div>                  
+        </div>
+    </body>
+</html>

@@ -1,0 +1,27 @@
+<html>
+    <head>
+    
+    </head>
+    <script src="./jsRibbon-enhance-form.js"></script>
+    <script src="./jsRibbon-component-state.js"></script>
+    <script src="./jsRibbon.js"></script>
+
+    <script>
+        jsRibbon.autoRegister = true;
+        console.log(jsRibbon.getComponents());
+    </script>
+    <body>
+        <div id="container">
+            Visible
+            <hr>
+            <div data-bind="component:Visible">
+                <label>
+                    <input type="checkbox" data-bind="value:isVisible" /> Visible Mode
+                </label>
+                <div data-bind="visible: isVisible">
+                    <input name="firstName" type="text" data-bind="value: firstName, update:blur" value="Raheel" />
+                </div>
+            </div>                    
+        </div>
+    </body>
+</html>

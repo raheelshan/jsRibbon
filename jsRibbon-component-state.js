@@ -95,17 +95,28 @@
 
                 // Initialize value
                 if (!(bindings.value in initialState)) {
+                    let val;
                     if (el.type === 'checkbox') {
-                        initialState[bindings.value] = keyUsageCount[bindings.value] > 1 ? [] : !!el.checked;
+                        val = keyUsageCount[bindings.value] > 1 ? [] : !!el.checked;
                     } else if (el.type === 'radio') {
-                        if (el.checked) initialState[bindings.value] = el.value;
+                        if (el.checked) val = el.value;
+                        
                     } else if (el.type === 'number') {
-                        const val = parseFloat(el.value);
-                        initialState[bindings.value] = isNaN(val) ? '' : val;
+                        const num = parseFloat(el.value);
+                        val = isNaN(num) ? '' : num;
                     } else {
+                        val = el.value;
+                    }
+                    initialState[bindings.value] = val;
+                } else {
+                    // If this key already came from a text binding but we have an input with value
+                    // → override it according to your priority
+                    if (el.value && el.value.trim()) {
                         initialState[bindings.value] = el.value;
                     }
                 }
+
+
             }
 
             if (bindings.text) {
@@ -116,7 +127,12 @@
                     bindings: bindings
                 });
                 if (!(bindings.text in initialState)) {
-                    initialState[bindings.text] = '';
+                    const textVal = el.textContent.trim();
+                    if (textVal) {
+                        initialState[bindings.text] = textVal;
+                    } else {
+                        initialState[bindings.text] = ''; // fallback until we see a value binding
+                    }
                 }
             }
 
@@ -592,6 +608,48 @@
                             handlerName
                         });
                     }
+
+                    if (type === 'click') {
+                        if (key === 'remove' || key === 'removeItem') {
+                            el.addEventListener('click', () => {
+                                const parent = el.closest('[data-key][data-foreach-owner]');
+                                if (!parent) return;
+
+                                const index = parseInt(parent.getAttribute('data-key'), 10);
+                                const ownerKey = parent.getAttribute('data-foreach-owner');
+
+                                const ownerMatch = ownerKey.match(/data\s*:\s*([^\],\s]+)/);
+                                if (!ownerMatch) return;
+
+                                const stateKey = ownerMatch[1];
+                                if (!Array.isArray(state[stateKey])) return;
+
+                                // Remove item at index
+                                state[stateKey].splice(index, 1);
+
+                                // Trigger reactivity manually if needed (to re-render foreach)
+                                state[stateKey] = [...state[stateKey]];
+                            });
+
+                            return;
+                        }
+
+                        // Fall back to user-defined click handler
+                        const ctx = componentEl.$ctx || {};
+                        if (typeof ctx[key] === 'function') {
+                            el.addEventListener('click', ctx[key]);
+                        } else {
+                            if (!componentEl._pendingEvents) componentEl._pendingEvents = [];
+                            componentEl._pendingEvents.push({
+                                el,
+                                type,
+                                handlerName: key
+                            });
+                        }
+
+                        return;
+                    }
+
 
                     return;
                 }
