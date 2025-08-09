@@ -55,6 +55,10 @@
         return { state: proxy, subscribe };
     }
 
+    function isInsideLoopOrWith(el) {
+        return el.closest('[data-bind*="foreach:"]') || el.closest('[data-bind*="with:"]');
+    }
+
     function initializeStateBindings(componentEl, context = {}) {
         const ctx = componentEl.$ctx || context || {};
         const bindingsMap = [];
@@ -73,9 +77,6 @@
                 console.warn('⚠️ Found data-bind element outside any component:', el);
             }
         });
-
-
-
 
 
         // First pass: collect bindings and count usage        
@@ -107,12 +108,18 @@
                     } else {
                         val = el.value;
                     }
-                    initialState[bindings.value] = val;
+
+                    if (!isInsideLoopOrWith(el)) {
+                        initialState[bindings.value] = val;
+                    }
+
                 } else {
                     // If this key already came from a text binding but we have an input with value
                     // → override it according to your priority
                     if (el.value && el.value.trim()) {
-                        initialState[bindings.value] = el.value;
+                        if (!isInsideLoopOrWith(el)) {
+                            initialState[bindings.value] = el.value;
+                        }
                     }
                 }
 
@@ -129,9 +136,13 @@
                 if (!(bindings.text in initialState)) {
                     const textVal = el.textContent.trim();
                     if (textVal) {
-                        initialState[bindings.text] = textVal;
+                        if (!isInsideLoopOrWith(el)) {
+                            initialState[bindings.text] = textVal;
+                        }
                     } else {
-                        initialState[bindings.text] = ''; // fallback until we see a value binding
+                        if (!isInsideLoopOrWith(el)) {
+                            initialState[bindings.text] = ''; // fallback until we see a value binding
+                        }
                     }
                 }
             }
@@ -146,7 +157,9 @@
                 });
 
                 if (!(bindings.all in initialState)) {
-                    initialState[bindings.all] = [];
+                    if (!isInsideLoopOrWith(el)) {
+                        initialState[bindings.all] = [];
+                    }
                 }
             }
 
@@ -160,7 +173,9 @@
                 });
 
                 if (!(bindings.visible in initialState)) {
-                    initialState[bindings.visible] = true; // or false if you want hidden by default
+                    if (!isInsideLoopOrWith(el)) {
+                        initialState[bindings.visible] = true; // or false if you want hidden by default
+                    }
 
                 }
             }
@@ -175,7 +190,9 @@
                 });
 
                 if (!(bindings.html in initialState)) {
-                    initialState[bindings.html] = '';
+                    if (!isInsideLoopOrWith(el)) {
+                        initialState[bindings.html] = '';
+                    }
                 }
             }
 
@@ -188,7 +205,9 @@
                     while ((match = regex.exec(cleaned)) !== null) {
                         const stateKey = match[2];
                         if (!(stateKey in initialState)) {
-                            initialState[stateKey] = false;
+                            if (!isInsideLoopOrWith(el)) {
+                                initialState[stateKey] = false;
+                            }
                         }
                     }
 
@@ -213,7 +232,9 @@
                     while ((match = regex.exec(cleaned)) !== null) {
                         const stateKey = match[2];
                         if (!(stateKey in initialState)) {
-                            initialState[stateKey] = "";
+                            if (!isInsideLoopOrWith(el)) {
+                                initialState[stateKey] = "";
+                            }
                         }
                     }
 
@@ -258,7 +279,24 @@
             });
 
             if (bindings.foreach) {
-                const arrayKey = bindings.foreach;
+                let arrayKey = bindings.foreach;
+                let alias = null;
+
+                // Support [ data: users, as: user ]
+                if (arrayKey.startsWith('[')) {
+                    try {
+                        const configStr = arrayKey.trim().replace(/^\[|\]$/g, '');
+                        const configParts = configStr.split(',').map(p => p.trim());
+                        configParts.forEach(part => {
+                            const [k, v] = part.split(':').map(x => x.trim());
+                            if (k === 'data') arrayKey = v;
+                            if (k === 'as') alias = v;
+                        });
+                    } catch (err) {
+                        console.warn('Invalid foreach syntax', arrayKey);
+                    }
+                }
+
                 const children = Array.from(el.children);
 
                 const parsedArray = children.map(child => {
@@ -271,7 +309,9 @@
                                 obj[bKey] = bindable.textContent.trim();
                             }
                             if (bType === 'value' && bindable instanceof HTMLInputElement) {
-                                obj[bKey] = bindable.type === 'checkbox' ? bindable.checked : bindable.value;
+                                obj[bKey] = bindable.type === 'checkbox'
+                                    ? bindable.checked
+                                    : bindable.value;
                             }
                         }
                     });
@@ -280,10 +320,13 @@
 
                 initialState[arrayKey] = parsedArray;
 
+                // console.log(parsedArray) // fruits
+
                 bindingsMap.push({
                     el,
                     type: 'foreach',
                     key: arrayKey,
+                    alias: alias, // 👈 store alias here
                     bindings: bindings
                 });
             }
@@ -624,30 +667,6 @@
                     }
 
                     if (type === 'click') {
-                        if (key === 'remove' || key === 'removeItem') {
-                            el.addEventListener('click', () => {
-                                const parent = el.closest('[data-key][data-foreach-owner]');
-                                if (!parent) return;
-
-                                const index = parseInt(parent.getAttribute('data-key'), 10);
-                                const ownerKey = parent.getAttribute('data-foreach-owner');
-
-                                const ownerMatch = ownerKey.match(/data\s*:\s*([^\],\s]+)/);
-                                if (!ownerMatch) return;
-
-                                const stateKey = ownerMatch[1];
-                                if (!Array.isArray(state[stateKey])) return;
-
-                                // Remove item at index
-                                state[stateKey].splice(index, 1);
-
-                                // Trigger reactivity manually if needed (to re-render foreach)
-                                state[stateKey] = [...state[stateKey]];
-                            });
-
-                            return;
-                        }
-
                         // Fall back to user-defined click handler
                         const ctx = componentEl.$ctx || {};
                         if (typeof ctx[key] === 'function') {
@@ -669,11 +688,13 @@
                 }
 
                 if (type === 'foreach') {
-                    const items = state[key];
+                    const items = state[data.key];
                     const parent = el;
                     const templateNodes = Array.from(parent.children);
 
                     // Just tag items with $index and $item (optional for future use)
+                    // console.log(items);
+
                     parent.innerHTML = ''; // clear
 
                     items.forEach((item, index) => {

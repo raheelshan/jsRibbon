@@ -10,18 +10,26 @@
 
         jsRibbon.component('Fruits', ($state) => {
             const show = () => {
-                console.log('Main $state:', $state);
-                console.log('Nested data:', $state.data);
+                console.log({ ...$state });
             };
             return { show };
         });
 
         jsRibbon.component('Users', ($state) => {
             const show = () => {
-                console.log('Main $state:',  { ...$state });
+                console.log({ ...$state });
             };
             return { show };
-        });        
+        });
+
+        jsRibbon.component('Persons', ($state) => {
+            const show = () => {
+                console.log({ ...$state });
+            };
+            return { show };
+        });
+
+
 
         setTimeout(() => {
             document.getElementById('dynamic').innerHTML =
@@ -62,37 +70,41 @@
         <hr>
         <div data-bind="component:Fruits">
             <ul data-bind="foreach: [ data: fruits, as: item ] ">
-                <li data-foreach-owner="[ data: fruits, as: item ]" data-key="0">
+                <li data-key="0">
                     <span data-bind="text:item">Apple</span>
                 </li>
-                <li data-foreach-owner="[ data: fruits, as: item ]" data-key="1">
+                <li data-key="1">
                     <span data-bind="text:item">Grapes</span>
                 </li>
-                <li data-foreach-owner="[ data: fruits, as: item ]" data-key="2">
+                <li data-key="2">
                     <span data-bind="text:item">Banana</span>
                 </li>
             </ul>
             <button data-bind="click:show">Click Me</button>
         </div>
         <br>
+        <!-- 
+        -->
 
         For Each Object
         <hr>
         <div data-bind="component:Persons">
             <ul data-bind="foreach: [ data: users, as: user ] ">
                 <li data-bind="key:0">
-                    <span data-bind="text:user.firstName">Raheel</span>
-                    <span data-bind="text:user.lastName">Shan</span>
+                    <span data-bind="text:firstName">Raheel</span>
+                    <span data-bind="text:lastName">Shan</span>
                 </li>
                 <li data-bind="key:1">
-                    <span data-bind="text:user.firstName">Saleem</span>
-                    <span data-bind="text:user.lastName">Ahmad</span>
+                    <span data-bind="text:firstName">Saleem</span>
+                    <span data-bind="text:lastName">Ahmad</span>
                 </li>
                 <li data-bind="key:2">
-                    <span data-bind="text:user.firstName">Shoaib</span>
-                    <span data-bind="text:user.lastName">Mansoor</span>
+                    <span data-bind="text:firstName">Shoaib</span>
+                    <span data-bind="text:lastName">Mansoor</span>
                 </li>
             </ul>
+            <span data-bind="text:Date">2025-12-12</span>
+            <button data-bind="click:show">Click Me</button>
         </div>
 
         <div id="dynamic">
