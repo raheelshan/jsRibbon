@@ -1,0 +1,106 @@
+<html>
+
+<head>
+    <script src="./jsRibbon-enhance-form.js"></script>
+    <script src="./jsRibbon-component-state.js"></script>
+    <script src="./jsRibbon.js"></script>
+
+    <script>
+        jsRibbon.autoRegister = true;
+
+        jsRibbon.component('Fruits', ($state) => {
+            const show = () => {
+                console.log('Main $state:', $state);
+                console.log('Nested data:', $state.data);
+            };
+            return { show };
+        });
+
+        jsRibbon.component('Users', ($state) => {
+            const show = () => {
+                console.log('Main $state:',  { ...$state });
+            };
+            return { show };
+        });        
+
+        setTimeout(() => {
+            document.getElementById('dynamic').innerHTML =
+                `
+         <div data-bind="component:Users">
+            <table>
+                <tr>
+                    <td>Name</td>
+                    <td>Age</td>
+                </tr>
+                <tbody data-bind="foreach: [ data: users, as: user ] ">
+                    <tr data-bind="key:0">
+                        <td data-bind="text:user.firstName">Raheel Shan</td>
+                        <td data-bind="text:user.age">40</td>
+                    </tr>
+                    <tr data-bind="key:1">
+                        <td data-bind="text:user.firstName">Saleem Ahmad</td>
+                        <td data-bind="text:user.age">21</td>
+                    </tr>
+                    <tr data-bind="key:2">
+                        <td data-bind="text:user.firstName">Shoaib Mansoor</td>
+                        <td data-bind="text:user.age">27</td>
+                    </tr>
+                </tbody>
+            </table>
+            <button data-bind="click:show">Click Me</button>
+ 
+        </div>
+                    `;
+        }, 2000);        
+    </script>
+
+</head>
+
+<body>
+    <div id="container">
+        For Each Primitive
+        <hr>
+        <div data-bind="component:Fruits">
+            <ul data-bind="foreach: [ data: fruits, as: item ] ">
+                <li data-foreach-owner="[ data: fruits, as: item ]" data-key="0">
+                    <span data-bind="text:item">Apple</span>
+                </li>
+                <li data-foreach-owner="[ data: fruits, as: item ]" data-key="1">
+                    <span data-bind="text:item">Grapes</span>
+                </li>
+                <li data-foreach-owner="[ data: fruits, as: item ]" data-key="2">
+                    <span data-bind="text:item">Banana</span>
+                </li>
+            </ul>
+            <button data-bind="click:show">Click Me</button>
+        </div>
+        <br>
+
+        For Each Object
+        <hr>
+        <div data-bind="component:Persons">
+            <ul data-bind="foreach: [ data: users, as: user ] ">
+                <li data-bind="key:0">
+                    <span data-bind="text:user.firstName">Raheel</span>
+                    <span data-bind="text:user.lastName">Shan</span>
+                </li>
+                <li data-bind="key:1">
+                    <span data-bind="text:user.firstName">Saleem</span>
+                    <span data-bind="text:user.lastName">Ahmad</span>
+                </li>
+                <li data-bind="key:2">
+                    <span data-bind="text:user.firstName">Shoaib</span>
+                    <span data-bind="text:user.lastName">Mansoor</span>
+                </li>
+            </ul>
+        </div>
+
+        <div id="dynamic">
+
+        </div>
+
+
+    </div>
+</body>
+
+</html>

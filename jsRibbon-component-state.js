@@ -100,7 +100,7 @@
                         val = keyUsageCount[bindings.value] > 1 ? [] : !!el.checked;
                     } else if (el.type === 'radio') {
                         if (el.checked) val = el.value;
-                        
+
                     } else if (el.type === 'number') {
                         const num = parseFloat(el.value);
                         val = isNaN(num) ? '' : num;
@@ -256,8 +256,38 @@
                     });
                 }
             });
-        });
 
+            if (bindings.foreach) {
+                const arrayKey = bindings.foreach;
+                const children = Array.from(el.children);
+
+                const parsedArray = children.map(child => {
+                    const obj = {};
+                    const deepBindables = child.querySelectorAll('[data-bind]');
+                    deepBindables.forEach(bindable => {
+                        const bindInfo = parseBindings(bindable.getAttribute('data-bind'));
+                        for (let [bType, bKey] of Object.entries(bindInfo)) {
+                            if (bType === 'text') {
+                                obj[bKey] = bindable.textContent.trim();
+                            }
+                            if (bType === 'value' && bindable instanceof HTMLInputElement) {
+                                obj[bKey] = bindable.type === 'checkbox' ? bindable.checked : bindable.value;
+                            }
+                        }
+                    });
+                    return obj;
+                });
+
+                initialState[arrayKey] = parsedArray;
+
+                bindingsMap.push({
+                    el,
+                    type: 'foreach',
+                    key: arrayKey,
+                    bindings: bindings
+                });
+            }
+        });
 
         const { state, subscribe } = createReactiveState(initialState);
         componentEl.$state = state;
@@ -568,8 +598,6 @@
                     return;
                 }
 
-
-
                 // ✅ Handle basic events like click, input, change
                 const supportedEvents = [
                     'click', 'change', 'input', 'blur', 'focus',
@@ -578,20 +606,6 @@
                     'dblclick', 'contextmenu',
                     'mousedown', 'mouseup'
                 ];
-
-                // if (supportedEvents.includes(type)) {
-                //     const handlerName = key;
-                //     const ctx = componentEl.$ctx || {};
-
-                //     if (typeof ctx[handlerName] === 'function') {
-                //         el.addEventListener(type, ctx[handlerName]);
-                //     } else {
-                //         console.warn(`⚠️ Event handler "${handlerName}" not found in component "${componentEl.getAttribute('data-bind')}"`, el);
-                //     }
-
-                //     return;
-                // }
-
 
                 if (supportedEvents.includes(type)) {
                     const handlerName = key;
@@ -650,6 +664,40 @@
                         return;
                     }
 
+
+                    return;
+                }
+
+                if (type === 'foreach') {
+                    const items = state[key];
+                    const parent = el;
+                    const templateNodes = Array.from(parent.children);
+
+                    // Just tag items with $index and $item (optional for future use)
+                    parent.innerHTML = ''; // clear
+
+                    items.forEach((item, index) => {
+                        const clone = templateNodes[index]?.cloneNode(true);
+                        if (!clone) return;
+                        const innerBindables = clone.querySelectorAll('[data-bind]');
+
+                        innerBindables.forEach(bindEl => {
+                            const bindInfo = parseBindings(bindEl.getAttribute('data-bind'));
+                            Object.entries(bindInfo).forEach(([bType, bKey]) => {
+                                if (bType === 'text') {
+                                    bindEl.textContent = item[bKey];
+                                }
+                                if (bType === 'value' && bindEl instanceof HTMLInputElement) {
+                                    bindEl.value = item[bKey];
+                                    if (bindEl.type === 'checkbox') {
+                                        bindEl.checked = !!item[bKey];
+                                    }
+                                }
+                            });
+                        });
+
+                        parent.appendChild(clone);
+                    });
 
                     return;
                 }
