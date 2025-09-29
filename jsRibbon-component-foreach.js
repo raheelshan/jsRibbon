@@ -49,64 +49,128 @@
         return fragment;
     }
 
-    function setupForeach(root) {
-        const all = root.querySelectorAll('[data-bind*="foreach:"]');
+    function setupForeach(componentEl, context = {}) {
 
-        all.forEach(el => {
-            const bindAttr = el.getAttribute('data-bind');
-            const { arrayName, itemName } = parseForeachBind(bindAttr);
+        const ctx = componentEl.$ctx || context || {};
+        const bindingsMap = [];
+        const initialState = {};
+        const keyUsageCount = {};
 
-            if (!arrayName) return;
+        const allBindings = document.querySelectorAll('[data-bind]');
+        const bindables = [];
 
-            const componentEl = el.closest('[data-bind*="component:"]');
-            if (!componentEl || !componentEl.$state) return;
+        allBindings.forEach(el => {
+            const nearestComponent = el.closest('[data-bind*="component:"]');
 
-            const state = componentEl.$state;
-            const arr = state[arrayName];
-
-            if (!Array.isArray(arr)) {
-                console.warn(`⚠️ Expected "${arrayName}" to be an array in component`, componentEl);
-                return;
+            if (nearestComponent === componentEl) {
+                bindables.push(el); // ✅ Inside this specific component
+            } else if (!nearestComponent) {
+                console.warn('⚠️ Found data-bind element outside any component:', el);
             }
-
-            const placeholder = document.createComment(`foreach:${arrayName}`);
-            el.parentNode.insertBefore(placeholder, el);
-            el.remove(); // remove template
-
-            const container = document.createElement('div');
-            placeholder.parentNode.insertBefore(container, placeholder.nextSibling);
-
-            // Watch for reactivity
-            const render = () => {
-                container.innerHTML = '';
-                state[arrayName].forEach(item => {
-                    const rendered = renderItem(el, item, itemName, state);
-                    container.appendChild(rendered);
-                });
-            };
-
-            // Replace array with proxy
-            const proxy = new Proxy(arr, {
-                get(target, prop) {
-                    return typeof target[prop] === 'function'
-                        ? (...args) => {
-                            const result = target[prop](...args);
-                            render();
-                            return result;
-                        }
-                        : target[prop];
-                },
-                set(target, prop, value) {
-                    target[prop] = value;
-                    render();
-                    return true;
-                }
-            });
-
-            // Replace original array
-            state[arrayName] = proxy;
-            render();
         });
+
+        bindables.forEach(el => {
+            if (bindings.foreach) {
+                let arrayKey = bindings.foreach;
+                let alias = null;
+
+                // Support [ data: users, as: user ]
+                if (arrayKey.startsWith('[')) {
+                    try {
+                        const configStr = arrayKey.trim().replace(/^\[|\]$/g, '');
+                        const configParts = configStr.split(',').map(p => p.trim());
+                        configParts.forEach(part => {
+                            const [k, v] = part.split(':').map(x => x.trim());
+                            if (k === 'data') arrayKey = v;
+                            if (k === 'as') alias = v;
+                        });
+                    } catch (err) {
+                        console.warn('Invalid foreach syntax', arrayKey);
+                    }
+                }
+
+                const children = Array.from(el.children);
+
+                const parsedArray = children.map(child => {
+                    const obj = {};
+                    const deepBindables = child.querySelectorAll('[data-bind]');
+                    deepBindables.forEach(bindable => {
+                        const bindInfo = parseBindings(bindable.getAttribute('data-bind'));
+                        for (let [bType, bKey] of Object.entries(bindInfo)) {
+                            if (bType === 'text') {
+                                obj[bKey] = bindable.textContent.trim();
+                            }
+                            if (bType === 'value' && bindable instanceof HTMLInputElement) {
+                                obj[bKey] = bindable.type === 'checkbox'
+                                    ? bindable.checked
+                                    : bindable.value;
+                            }
+                        }
+                    });
+                    return obj;
+                });
+
+                initialState[arrayKey] = parsedArray;
+
+                // console.log(parsedArray) // fruits
+
+                bindingsMap.push({
+                    el,
+                    type: 'foreach',
+                    key: arrayKey,
+                    alias: alias, // 👈 store alias here
+                    bindings: bindings
+                });
+            }
+        });
+
+        const { state, subscribe } = createReactiveState(initialState);
+        componentEl.$state = state;
+
+        // Second pass: bind all
+        bindingsMap.forEach((data) => {
+
+            let { el, updateEvent, bindings } = data;
+
+            Object.entries(bindings).forEach(([type, key]) => {
+
+               if (type === 'foreach') {
+                   const items = state[data.key];
+                   const parent = el;
+                   const templateNodes = Array.from(parent.children);
+
+                   // Just tag items with $index and $item (optional for future use)
+                   // console.log(items);
+
+                   parent.innerHTML = ''; // clear
+
+                   items.forEach((item, index) => {
+                       const clone = templateNodes[index]?.cloneNode(true);
+                       if (!clone) return;
+                       const innerBindables = clone.querySelectorAll('[data-bind]');
+
+                       innerBindables.forEach(bindEl => {
+                           const bindInfo = parseBindings(bindEl.getAttribute('data-bind'));
+                           Object.entries(bindInfo).forEach(([bType, bKey]) => {
+                               if (bType === 'text') {
+                                   bindEl.textContent = item[bKey];
+                               }
+                               if (bType === 'value' && bindEl instanceof HTMLInputElement) {
+                                   bindEl.value = item[bKey];
+                                   if (bindEl.type === 'checkbox') {
+                                       bindEl.checked = !!item[bKey];
+                                   }
+                               }
+                           });
+                       });
+
+                       parent.appendChild(clone);
+                   });
+
+                   return;
+               }
+            })
+        });        
     }
 
     // Hook into jsRibbonState if present

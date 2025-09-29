@@ -1,0 +1,43 @@
+<html>
+    <head>
+    
+    </head>
+    <script src="./jsRibbon-enhance-form.js"></script>
+    <script src="./jsRibbon-component-state.js"></script>
+    <script src="./jsRibbon.js"></script>
+
+    <script>
+        jsRibbon.component('Register', ($state) => {
+
+
+            const handleClick = (data) => {
+                console.log(data , $state)
+            };
+
+
+
+            return { handleClick };
+        });        
+    </script>
+
+    <script>
+        jsRibbon.autoRegister = true;
+        console.log(jsRibbon.getComponents());
+    </script>
+    <body>
+        <div id="container">
+            
+            <div data-bind="component:Register">
+
+                <button data-bind="click:handleClick">Click Me</button>
+
+
+                <div data-bind="component:Login, with: loginData, expose: [ firstName as fName, lastName as lName ]">
+                    <p>First: <input data-bind="value:firstName" value="Raheel" /></p>
+                    <p>Last: <input data-bind="value:lastName" value="Shan" /></p>
+                </div>
+            </div>            
+        </div>
+    </body>
+</html>
+

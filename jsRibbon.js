@@ -4,13 +4,133 @@
     let componentKeys = new Set();           // Prevent duplicate by key
     let autoRegister = true;
 
+    // ---------- jsRibbon binding parser (supports "as" for alias, "=>" for mapping) ----------
+    function splitTopLevel(s) {
+        if (!s || typeof s !== 'string') return [];
+        const parts = [];
+        let cur = '', depth = 0, quote = null;
+        for (let i = 0; i < s.length; i++) {
+            const ch = s[i];
+            if (quote) {
+                cur += ch;
+                if (ch === quote && s[i - 1] !== '\\') quote = null;
+                continue;
+            }
+            if (ch === '"' || ch === "'") { quote = ch; cur += ch; continue; }
+            if (ch === '[' || ch === '{' || ch === '(') { depth++; cur += ch; continue; }
+            if (ch === ']' || ch === '}' || ch === ')') { depth = Math.max(0, depth - 1); cur += ch; continue; }
+            if (ch === ',' && depth === 0) { if (cur.trim()) parts.push(cur.trim()); cur = ''; continue; }
+            cur += ch;
+        }
+        if (cur.trim()) parts.push(cur.trim());
+        return parts;
+    }
+
+    function stripQuotes(s) {
+        return (s || '').replace(/^\s*['"]?|['"]?\s*$/g, '').trim();
+    }
+
+    // parse a single token in a bracket list
+    // returns { kind: 'alias'|'map'|'plain'|'wildcard', source, target }
+    function parseListToken(token) {
+        const t = token.trim();
+        if (!t) return null;
+
+        // wildcard
+        if (/^\*$/i.test(t) || /^['"]\*['"]$/.test(t)) {
+            return { kind: 'wildcard' };
+        }
+
+        // "as" alias:  left as right   (aliasing: left = source name, right = alias name)
+        const asMatch = t.match(/^(.+?)\s+as\s+(.+)$/i);
+        if (asMatch) {
+            return { kind: 'alias', source: stripQuotes(asMatch[1]), target: stripQuotes(asMatch[2]) };
+        }
+
+        // mapping "=>" : left => right  (mapping: left = source observable, right = target DOM name)
+        const mapMatch = t.match(/^(.+?)\s*=>\s*(.+)$/);
+        if (mapMatch) {
+            return { kind: 'map', source: stripQuotes(mapMatch[1]), target: stripQuotes(mapMatch[2]) };
+        }
+
+        // fallback: maybe "key: value" inside list (support legacy forms like "data: fruits")
+        const colonMatch = t.match(/^(.+?)\s*:\s*(.+)$/);
+        if (colonMatch) {
+            // treat as map with left=rhs? or left=rhs? We'll keep RHS as the "source value"
+            // To be consistent with "left = source" rule, interpret "key: value" as (source=value, target=key)
+            // i.e. "data: fruits" -> source: "fruits", target: "data"
+            return { kind: 'map', source: stripQuotes(colonMatch[2]), target: stripQuotes(colonMatch[1]) };
+        }
+
+        // plain token: source and target are the same name (e.g., expose:[ firstName ])
+        const id = stripQuotes(t);
+        return { kind: 'plain', source: id, target: id };
+    }
+
+    // parse a bracket expression like "[ firstName as fName, lastName ]"
+    function parseBracketExpression(raw) {
+        const inner = raw.replace(/^\s*\[|\]\s*$/g, '').trim();
+        if (inner === '') return { type: 'list', items: [] };
+        const parts = splitTopLevel(inner);
+        const items = [];
+        let hasWildcard = false;
+        for (const p of parts) {
+            const token = parseListToken(p);
+            if (!token) continue;
+            if (token.kind === 'wildcard') { hasWildcard = true; continue; }
+            items.push(token);
+        }
+        if (hasWildcard) return { type: 'wildcard', items };
+        return { type: 'list', items };
+    }
+
+    // parse a single binding value (could be bracketed list or plain ident)
+    function parseBindingValue(raw) {
+        if (raw == null) return { type: 'raw', raw: '' };
+        const s = raw.trim();
+        if (!s) return { type: 'raw', raw: '' };
+
+        // bracket expression
+        if (s[0] === '[' && s[s.length - 1] === ']') {
+            return parseBracketExpression(s);
+        }
+
+        // quoted or unquoted single ident: "firstName" or 'firstName' or user.name
+        return { type: 'ident', name: stripQuotes(s) };
+    }
+
+    // public parse function: "text:accepted, class:[ isHidden => hidden ]"
     function parseDataBind(attr) {
-        return Object.fromEntries(
-            attr
-                .split(',')
-                .map(pair => pair.trim().split(':').map(x => x.trim()))
-                .filter(([key, val]) => key && val)
-        );
+        const out = {};
+        if (!attr || typeof attr !== 'string') return out;
+        const entries = splitTopLevel(attr);
+
+        for (const e of entries) {
+            // find top-level ':' that separates bindingName : bindingValue
+            // we deliberately allow only top-level colon (not inside brackets)
+            let idx = -1, depth = 0, quote = null;
+            for (let i = 0; i < e.length; i++) {
+                const ch = e[i];
+                if (quote) {
+                    if (ch === quote && e[i - 1] !== '\\') quote = null;
+                    continue;
+                }
+                if (ch === '"' || ch === "'") { quote = ch; continue; }
+                if (ch === '[' || ch === '{' || ch === '(') { depth++; continue; }
+                if (ch === ']' || ch === '}' || ch === ')') { depth = Math.max(0, depth - 1); continue; }
+                if (ch === ':' && depth === 0) { idx = i; break; }
+            }
+            if (idx === -1) {
+                // bare token: treat as literal enable flag
+                out[e.trim()] = { type: 'literal', value: true };
+                continue;
+            }
+            const key = e.slice(0, idx).trim();
+            const valRaw = e.slice(idx + 1).trim();
+            out[key] = parseBindingValue(valRaw);
+        }
+
+        return out;
     }
 
     function getComponentNameFrom(el) {
@@ -21,7 +141,8 @@
 
     function getComponentInfo(el) {
         const dataBind = el.getAttribute?.('data-bind')?.trim();
-        return parseDataBind(dataBind || '');
+        const parsed = parseDataBind(dataBind || '');
+        return parsed;
     }
 
     function findParentComponent(el, parentName) {
@@ -53,10 +174,14 @@
         if (initializedElements.has(el)) return;
 
         const info = getComponentInfo(el);
-        const name = info.component;
+        const componentInfo = info.component;
         const key = el.getAttribute?.('data-key');
 
-        if (!name) return;
+        if (!componentInfo) return;
+
+        const { type, name } = componentInfo;
+        
+        if(type != 'ident') return;
 
         // Prevent duplicate by key
         if (key) {
@@ -89,9 +214,9 @@
             window.jsRibbonState.init(el, el.$context);
         }
 
-
         // ✅ 2. Register component methods after state is ready
         const def = window.jsRibbon.components?.[name];
+
         if (typeof def === 'function') {
             try {
                 const ctx = def(el.$state, el) || {};
@@ -100,11 +225,15 @@
                 // ✅ 3. If there were any pending events, bind them now
                 if (Array.isArray(el._pendingEvents)) {
                     el._pendingEvents.forEach(({ el: targetEl, type, handlerName }) => {
-                        if (typeof ctx[handlerName] === 'function') {
-                            targetEl.addEventListener(type, ctx[handlerName]);
-                        } else {
-                            console.warn(`⚠️ Event handler "${handlerName}" still not found in "${name}"`, targetEl);
+
+                        if (!(handlerName === 'remove' || handlerName === 'removeItem')) {
+                            if (typeof ctx[handlerName] === 'function') {
+                                targetEl.addEventListener(type, ctx[handlerName]);
+                            } else {
+                                console.warn(`⚠️ Event handler "${handlerName}" still not found in "${name}"`, targetEl);
+                            }
                         }
+
                     });
                     delete el._pendingEvents;
                 }

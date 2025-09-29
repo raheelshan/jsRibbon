@@ -26,9 +26,9 @@
                 <input type="checkbox" data-bind="value:isHidden" id="toggle" /> <label for="toggle">Toggle Hide/Show</label>
                 <input type="checkbox" data-bind="value:isPink"  id="color"/> <label for="color">Toggle Pink/Green</label>
                 <hr>
-                <div data-bind="class: [ hidden => isHidden, pink => isPink ]">
+                <div data-bind="class: [ isHidden => hidden, isPink => pink ]" class="">
                     <input name="firstName" type="text"
-                        data-bind="value: firstName, class: [ hidden => isHidden, pink => isPink ]" value="Raheel" />
+                        data-bind="value: firstName, class: [ isHidden => hidden, isPink => pink ]" value="Raheel" />
         
                 </div>
         

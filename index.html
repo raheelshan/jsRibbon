@@ -1,31 +1,14 @@
 <html>
 
 <head>
-    <script src="./jsRibbon-enhance-form.js"></script>
+    <!-- <script src="./jsRibbon-enhance-form.js"></script>
     <script src="./jsRibbon-component-state.js"></script>
-    <script src="./jsRibbon-component-foreach.js"></script>
-    <script src="./jsRibbon.js"></script>
+    <script src="./jsRibbon-component-foreach.js"></script> -->
+    <!-- <script src="./jsRibbon.js"></script> -->
 
-    <script src="./test.js"></script>
+    <script src="./lib.js"></script>
 
     <script>
-
-        jsRibbon.autoRegister = true;
-
-        jsRibbon.component('Parent', ($state) => {
-            const show = () => {
-                console.log($state);
-            };
-            return { show };
-        });
-
-        jsRibbon.component('Login', ($state) => {
-            const show = () => {
-                console.log('Main $state:', $state);
-                console.log('Nested data:', $state.data);
-            };
-            return { show };
-        });
 
 
 
@@ -35,67 +18,32 @@
 
 
 <body>
-    <ul data-bind="foreach: [ data: fruits, as: item ] ">
-        <li data-foreach-owner="[ data: fruits, as: item ]" data-key="0">
-            <span data-bind="text:item">Apple</span>
-            <button data-bind="click:remove">Remove</button>
-        </li>
-        <li data-foreach-owner="[ data: fruits, as: item ]" data-key="1">
-            <span data-bind="text:item">Grapes</span>
-            <button data-bind="click:remove">Remove</button>
-        </li>
-        <li data-foreach-owner="[ data: fruits, as: item ]" data-key="2">
-            <span data-bind="text:item">Banana</span>
-            <button data-bind="click:remove">Remove</button>
-        </li>
-    </ul>
 
-    <!-- <input type="text" data-bind="value: firstName" value="Saleem">
-    <span data-bind="text:firstName"></span> -->
-    <!-- <div data-bind="component:Login">
-            <div data-bind="with: data">
-                <div data-bind="component:Login, context : data ,expose: [ firstName => name ]">
-                    <div>
-                        <p>First name: <input name="firstName" type="text" data-bind="value: firstName" value="Saleem" />
-                        </p>
-                        <p>Last name: <input name="lastName" type="text" data-bind="value: lastName" value="Ahmad" /></p>
-                    </div>
-                </div>    
-                <div data-bind="component:Counter, context : data, expose: [ count ]">
-                    <input type="number" value="5" min="0" max="20" data-bind="value:count, update:focusout" />
-                </div>
-                <button data-bind="click:show">Click Me</button>
-        
-                <span data-bind="text:name"></span>
-                <span data-bind="text:count"></span>
-            </div>    
-        </div> -->
+    <div>
+        <a href="./attribute.html">Attribute</a><br />
+        <a href="./checkbox.html">Checkbox</a><br />
+        <a href="./class.html">Class</a><br />
+        <a href="./component.html">Component</a><br />
+        <a href="./context.html">Context</a><br />
+        <a href="./dynamic-content.html">Dynamic Content</a><br />
+        <a href="./event.html">Event</a><br />
+        <a href="./expose.html">Expose</a><br />
+        <a href="./foreach.html">Foreach</a><br />
+        <a href="./html.html">HTML</a><br />
+        <a href="./load-state.html">Load State</a><br />
+        <a href="./mutation.html">Mutation</a><br />
+        <a href="./no-component.html">No Component</a><br />
+        <a href="./parent.html">Parent</a><br />
+        <a href="./repeated.html">Repeated</a><br />
+        <a href="./radio.html">Radio</a><br />
+        <a href="./submit.html">Submit</a><br />
+        <a href="./text.html">Text & Value</a><br />
+        <a href="./template.html">Template</a><br />
+        <a href="./textarea.html">Textarea</a><br />
+        <a href="./visible.html">Visible</a><br />
+        <a href="./with.html">With</a><br />
 
-
-    <!-- <div data-bind="component:Login">
-        <div data-bind="with: data">
-            <div data-bind="component:Login, context: data, expose: [ firstName => firstChild, lastName => lastChild ]">
-                <div>
-                    <p>First name: <input name="firstName" type="text" data-bind="value: firstName" value="Saleem" />
-                    </p>
-                    <p>Last name: <input name="lastName" type="text" data-bind="value: lastName" value="Ahmad" /></p>
-                </div>
-            </div>
-
-            <div data-bind="component:Counter, context: data, expose: [ count => total]">
-                <input type="number" value="5" min="0" max="20" data-bind="value:count, update:focusout" />
-            </div>
-        </div>
-
-        <span data-bind="text:data.firstChild"></span>
-        <span data-bind="text:data.lastChild"></span>
-        <span data-bind="text:data.total"></span>
-    </div> -->
-
-    
-
-   
-        
+    </div>
 
 </body>
 
