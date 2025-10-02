@@ -1,43 +1,32 @@
 <html>
-    <head>
-    
-    </head>
-    <script src="./jsRibbon-enhance-form.js"></script>
-    <script src="./jsRibbon-component-state.js"></script>
-    <script src="./jsRibbon.js"></script>
 
-    <script>
-        jsRibbon.component('Register', ($state) => {
+<head>
 
+</head>
+<script src="./jsRibbon-enhance-form.js"></script>
+<script src="./jsRibbon-component-state.js"></script>
+<script src="./jsRibbon.js"></script>
+<script>
+    jsRibbon.autoRegister = true;
+</script>
 
-            const handleClick = (data) => {
-                console.log(data , $state)
-            };
+<body>
+    <div id="container">
 
-
-
-            return { handleClick };
-        });        
-    </script>
-
-    <script>
-        jsRibbon.autoRegister = true;
-        console.log(jsRibbon.getComponents());
-    </script>
-    <body>
-        <div id="container">
-            
-            <div data-bind="component:Register">
-
-                <button data-bind="click:handleClick">Click Me</button>
-
-
-                <div data-bind="component:Login, with: loginData, expose: [ firstName as fName, lastName as lName ]">
+        <div data-bind="component:Page , with : page">
+            <div data-bind="component:Auth , with : auth">
+                <div data-bind="component:Register , with : register">
+                    <button data-bind="click:handleClick">Click Me</button>
+                </div>
+                <div
+                    data-bind="component:Login, context : [page , auth] with: loginData, expose: [ firstName as fName, lastName as lName ]">
                     <p>First: <input data-bind="value:firstName" value="Raheel" /></p>
                     <p>Last: <input data-bind="value:lastName" value="Shan" /></p>
                 </div>
-            </div>            
+            </div>
         </div>
-    </body>
-</html>
 
+    </div>
+</body>
+
+</html>

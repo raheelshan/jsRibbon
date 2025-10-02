@@ -1,0 +1,37 @@
+<html>
+
+<head>
+
+</head>
+<script src="./jsRibbon-enhance-form.js"></script>
+<script src="./jsRibbon-component-state.js"></script>
+<script src="./jsRibbon.js"></script>
+<script>
+    jsRibbon.autoRegister = true;
+</script>
+
+<body>
+    <div id="container">
+
+        <div
+            data-bind="component:Layout, context : layoutContext">
+            <input type="text" name="name" value="Raheel Shan" data-bind="value: firstName">    
+
+            <div data-bind="component:Header" style="width: 600px; height:200px; background-color: pink;">
+                <span data-bind="text:layout.firstName"></span>
+            </div>
+            <div data-bind="component:Content" style="width: 600px; height:200px; background-color: yellow;">
+                <span data-bind="text:layout.firstName"></span>
+            </div>
+
+            <div data-bind="component:Footer" style="width: 600px; height:200px; background-color: greenyellow;">
+                <span data-bind="text:layout.firstName"></span>
+            </div>            
+
+        </div>
+
+
+    </div>
+</body>
+
+</html>

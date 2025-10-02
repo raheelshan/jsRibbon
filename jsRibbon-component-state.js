@@ -10,6 +10,7 @@
         return null;
     }
 
+
     function parseBindings(attr) {
         const result = {};
         let current = '';
@@ -269,59 +270,7 @@
 
             return;
         }
-    }
-
-    function exportBinding(bindings, bindingsMap, el) {
-        if (bindings.expose) {
-            try {
-                const exposeStr = bindings.expose.trim().replace(/^\[|\]$/g, '');
-                const pairs = exposeStr.split(',').map(p => p.trim()).filter(Boolean);
-
-                const exposeMap = {};
-                pairs.forEach(pair => {
-                    let [from, to] = pair.split(/\s*(?:=>|as)\s*/).map(x => x.trim());
-                    if (!to) to = from; // if no alias, keep same name
-                    exposeMap[from] = to;
-                });
-
-                console.log(exposeMap);
-
-                bindingsMap.push({
-                    el,
-                    type: "expose",
-                    key: bindings.expose,
-                    exposeMap, // 🟢 attach here
-                    bindings
-                });
-            } catch (e) {
-                console.warn("Invalid expose binding:", bindings.expose);
-            }
-        }
-    }
-
-    function withBinding(bindings, ctx, initialState, el, bindingsMap) {
-        if (bindings.with) {
-            const withKey = bindings.with.trim();
-
-            // Create sub-context for the child
-            const subCtx = { ...ctx };
-
-            // Allocate object in parent state if not exists
-            if (!(withKey in initialState)) {
-                initialState[withKey] = {};
-            }
-
-            // Attach context marker
-            el.setAttribute("data-with-owner", withKey);
-
-            bindingsMap.push({
-                el,
-                type: "with",
-                key: withKey,
-                bindings
-            });
-        }
-    }
+    }    
 
     function foreachBinding(bindings, el, initialState, ctx) {
         if (bindings.foreach) {
@@ -515,6 +464,7 @@
     function applyText(el, key, type, state, subscribe) {
         if (type === 'text') {
             el.textContent = state[key];
+
             subscribe(key, val => {
                 el.textContent = Array.isArray(val) ? val.join(', ') : val;
             });
@@ -523,22 +473,24 @@
     }
 
     function textBinding(bindings, bindingsMap, el, initialState) {
-        if (bindings.text) {
+        let { text } = bindings;
+
+        if (text) {
             bindingsMap.push({
                 el,
                 type: 'text',
-                key: bindings.text,
+                key: text,
                 bindings: bindings
             });
-            if (!(bindings.text in initialState)) {
+            if (!(text in initialState)) {
                 const textVal = el.textContent.trim();
                 if (textVal) {
                     if (!isInsideLoopOrWith(el)) {
-                        initialState[bindings.text] = textVal;
+                        initialState[text] = textVal;
                     }
                 } else {
                     if (!isInsideLoopOrWith(el)) {
-                        initialState[bindings.text] = '';
+                        initialState[text] = '';
                     }
                 }
             }
@@ -546,6 +498,7 @@
     }
 
     function applyValue(el, key, type, state, updateEvent, subscribe, keyUsageCount) {
+
         if (type === 'value' && el instanceof HTMLInputElement) {
             const inputType = el.type;
             const fallbackEvent = inputType === 'checkbox' || inputType === 'radio' ? 'change' : 'input';
@@ -647,21 +600,24 @@
     }
 
     function valueBinding(bindings, bindingsMap, el, keyUsageCount, initialState) {
-        if (bindings.value) {
+
+        let { value, update } = bindings;
+
+        if (value) {
             bindingsMap.push({
                 el,
                 type: 'value',
-                key: bindings.value,
-                updateEvent: bindings.update || null,
+                key: value,
+                updateEvent: update || null,
                 bindings: bindings
             });
-            keyUsageCount[bindings.value] = (keyUsageCount[bindings.value] || 0) + 1;
+            keyUsageCount[value] = (keyUsageCount[value] || 0) + 1;
 
             // Initialize value
-            if (!(bindings.value in initialState)) {
+            if (!(value in initialState)) {
                 let val;
                 if (el.type === 'checkbox') {
-                    val = keyUsageCount[bindings.value] > 1 ? [] : !!el.checked;
+                    val = keyUsageCount[value] > 1 ? [] : !!el.checked;
                 } else if (el.type === 'radio') {
                     if (el.checked) val = el.value;
 
@@ -673,7 +629,7 @@
                 }
 
                 if (!isInsideLoopOrWith(el)) {
-                    initialState[bindings.value] = val;
+                    initialState[value] = val;
                 }
 
             } else {
@@ -681,7 +637,7 @@
                 // → override it according to your priority
                 if (el.value && el.value.trim()) {
                     if (!isInsideLoopOrWith(el)) {
-                        initialState[bindings.value] = el.value;
+                        initialState[value] = el.value;
                     }
                 }
             }
@@ -872,7 +828,7 @@
         }
     }
 
-    function applySubmit(el, key, type, state, update, subscribe) {
+    function applySubmit(el, key, type, bindings, componentEl) {
         if (type === 'submit' && el instanceof HTMLFormElement) {
             const behavior = key.trim(); // ajax or default
             const swap = bindings.swap?.trim() || 'innerHTML';
@@ -962,46 +918,6 @@
         }
     }
 
-    function applyWith(el, key, type, state, update, subscribe) {
-        if (type === "with") {
-            const subKey = data.key;
-            const subState = {}; // child context
-
-            // Attach Proxy so child updates notify parent
-            initialState[subKey] = new Proxy(subState, {
-                set(target, prop, value) {
-                    const result = Reflect.set(target, prop, value);
-                    // Re-render logic can be added if needed
-                    return result;
-                }
-            });
-
-            return;
-        }
-    }
-
-    function applyExpose(el, key, type, state, update, subscribe) {
-        if (type === "expose") {
-            const exposeMap = data.exposeMap;  // will always exist now
-            if (!exposeMap || Object.keys(exposeMap).length === 0) return;
-
-            const parentKey = el.closest("[data-with-owner]")?.getAttribute("data-with-owner");
-            if (!parentKey) return;
-
-            const parentObj = initialState[parentKey];
-
-            Object.entries(exposeMap).forEach(([childProp, parentProp]) => {
-                Object.defineProperty(parentObj, parentProp, {
-                    get: () => state[childProp],
-                    set: (val) => { state[childProp] = val; },
-                    enumerable: true,
-                    configurable: true
-                });
-            });
-            return;
-        }
-    }    
-
     function initializeStateBindings(componentEl, context = {}) {
         const ctx = componentEl.$ctx || context || {};
         const bindingsMap = [];
@@ -1025,8 +941,8 @@
         bindables.forEach(el => {
             const bindings = parseBindings(el.getAttribute('data-bind'));
 
-            valueBinding(bindings, bindingsMap, el, keyUsageCount, initialState);
             textBinding(bindings, bindingsMap, el, initialState);
+            valueBinding(bindings, bindingsMap, el, keyUsageCount, initialState);
             toggleBinding(bindings, bindingsMap, el, initialState);
             visibleBinding(bindings, bindingsMap, el, initialState);
             htmlBinding(bindings, bindingsMap, el, initialState);
@@ -1034,9 +950,8 @@
             attributeBinding(bindings, initialState, el, bindingsMap);
             submitBinding(bindings, bindingsMap, el);
             eventBinding(bindings, bindingsMap, el);
+            contextBinding(bindings, ctx, initialState, el, bindingsMap);
             foreachBinding(bindings, el, initialState, ctx);
-            withBinding(bindings, ctx, initialState, el, bindingsMap);
-            exportBinding(bindings, bindingsMap, el);
         });
 
         const { state, subscribe } = createReactiveState(initialState);
@@ -1060,11 +975,9 @@
                 applyHtml(el, key, type, state, updateEvent, subscribe)
                 applyClass(el, key, type, state, updateEvent, subscribe)
                 applyAttribute(el, key, type, state, updateEvent, subscribe)
-                applySubmit(el, key, type, state, updateEvent, subscribe)
+                applySubmit(el, key, type, bindings, componentEl)
                 applyEvent(el, key, type, state, updateEvent, subscribe, componentEl)
                 applyForeach(el, key, type, state, updateEvent, subscribe)
-                applyWith(el, key, type, state, updateEvent, subscribe)
-                applyExpose(el, key, type, state, updateEvent, subscribe)
             });
         });
     }
