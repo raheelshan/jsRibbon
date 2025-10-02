@@ -950,7 +950,6 @@
             attributeBinding(bindings, initialState, el, bindingsMap);
             submitBinding(bindings, bindingsMap, el);
             eventBinding(bindings, bindingsMap, el);
-            contextBinding(bindings, ctx, initialState, el, bindingsMap);
             foreachBinding(bindings, el, initialState, ctx);
         });
 
