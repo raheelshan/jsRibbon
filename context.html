@@ -8,25 +8,48 @@
 <script src="./jsRibbon.js"></script>
 <script>
     jsRibbon.autoRegister = true;
+    console.log(jsRibbon.getComponents());
+
+    jsRibbon.component('Layout', ($state) => {
+
+        const handleClick = () => {
+            console.log('Main $state:', $state);
+        };
+
+        return { handleClick };
+    });     
 </script>
 
 <body>
     <div id="container">
 
-        <div
-            data-bind="component:Layout, context : layoutContext">
-            <input type="text" name="name" value="Raheel Shan" data-bind="value: firstName">    
+        <div data-bind="component:Layout, context : layout">
+            <input type="text" name="name" value="Raheel" data-bind="value: firstName">
+            <span data-bind="text:firstName"></span>
+            <button data-bind="click:handleClick">Clck Me</button>
 
-            <div data-bind="component:Header" style="width: 600px; height:200px; background-color: pink;">
+            <div data-bind="component:Header" style="width: 600px; height:50px; background-color: pink;">
                 <span data-bind="text:layout.firstName"></span>
+                <span data-bind="text:title">Header</span>
             </div>
-            <div data-bind="component:Content" style="width: 600px; height:200px; background-color: yellow;">
+            <div data-bind="component:Content, context : content"
+                style="width: 600px; height:50px; background-color: yellow;">
                 <span data-bind="text:layout.firstName"></span>
+                <span data-bind="text:title">Content</span>
+                <input type="text" name="name" value="Shan" data-bind="value: lastName">
+
+                <div data-bind="component:Container" style="width: 600px; height:50px; background-color: greenyellow;">
+                    <span data-bind="text:layout.firstName"></span>
+                    <span data-bind="text:content.lastName"></span>
+                    <span data-bind="text:title">Container</span>
+                    <button data-bind="click : layout.handleClick">Clck Me</button>
+                </div>
             </div>
 
-            <div data-bind="component:Footer" style="width: 600px; height:200px; background-color: greenyellow;">
+            <div data-bind="component:Footer" style="width: 600px; height:50px; background-color: greenyellow;">
                 <span data-bind="text:layout.firstName"></span>
-            </div>            
+                <span data-bind="text:title">Footer</span>
+            </div>
 
         </div>
 

@@ -10,6 +10,55 @@
         return null;
     }
 
+    function toTitleCase(str) {
+        return str
+            .toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+
+    function resolvePath(componentEl, fullKey) {
+
+        const parts = fullKey.split('.');
+
+        if (parts.length > 1) {
+
+            const parentContext = toTitleCase(parts[0]);
+            const binding = parts[1];
+
+            let parent = componentEl.parentElement;
+
+            while (parent) {
+                if (parent.$state && parent.getAttribute('data-bind')?.includes(`component:${parentContext}`)) {
+                    return { state: parent.$state, subscribe: parent.$subscribe, key: binding };
+                }
+                parent = parent.parentElement;
+            }
+
+            throw new Error(`Context "${parentContext}" not found for binding "${fullKey}"`);
+        }
+    }
+
+    function resolveMethod(componentEl, fullKey) {
+        const parts = fullKey.split('.');
+        if (parts.length === 1) {
+            return componentEl.$ctx?.[parts[0]];
+        }
+
+        const parentContext = toTitleCase(parts[0]);
+        const methodName = parts[1];
+        let parent = componentEl.parentElement;
+
+        while (parent) {
+            if (parent.$state && parent.getAttribute('data-bind')?.includes(`component:${parentContext}`)) {
+                return parent.$ctx[methodName];
+            }
+            parent = parent.parentElement;
+        }
+
+        return undefined;
+    }
 
     function parseBindings(attr) {
         const result = {};
@@ -201,7 +250,6 @@
     }
 
     function applyEvent(el, key, type, state, update, subscribe, componentEl) {
-        // ✅ Handle basic events like click, input, change
         const supportedEvents = [
             'click', 'change', 'input', 'blur', 'focus',
             'keydown', 'keyup', 'keypress',
@@ -210,67 +258,40 @@
             'mousedown', 'mouseup'
         ];
 
-        // If element is inside foreach, skip direct binding – delegation will handle it
         if (el.closest('[data-foreach-owner]')) {
+            return; // foreach uses delegation
+        }
+
+        if (!supportedEvents.includes(type)) return;
+
+        const handlerName = key;
+        const fn = resolveMethod(componentEl, handlerName);
+
+        if (typeof fn === 'function') {
+            el.addEventListener(type, fn);
             return;
         }
 
-        if (supportedEvents.includes(type)) {
-            const handlerName = key;  // ✅ now "handleClick" or "handleHover"
-            const ctx = componentEl.$ctx || {};
+        // built-in removeItem shortcut
+        if (type === 'click' && (key === 'remove' || key === 'removeItem')) {
+            el.addEventListener('click', () => {
+                const parent = el.closest('[data-key][data-foreach-owner]');
+                if (!parent) return;
 
-            if (typeof ctx[handlerName] === 'function') {
-                el.addEventListener(type, ctx[handlerName]);
-                return;
-            }
+                const index = parseInt(parent.getAttribute('data-key'), 10);
+                const stateKey = parent.getAttribute('data-foreach-owner');
+                if (!Array.isArray(state[stateKey])) return;
 
-            if (type === 'click') {
-                if (key === 'remove' || key === 'removeItem') {
-                    el.addEventListener('click', () => {
-                        const parent = el.closest('[data-key][data-foreach-owner]');
-                        if (!parent) return;
-
-                        const index = parseInt(parent.getAttribute('data-key'), 10);
-                        const stateKey = parent.getAttribute('data-foreach-owner');
-
-                        if (!Array.isArray(state[stateKey])) return;
-
-                        state[stateKey].splice(index, 1); // This triggers re-render via Proxy 
-                    });
-                    return;
-                }
-
-
-                // Fall back to user-defined click handler 
-                const ctx = componentEl.$ctx || {};
-
-                if (typeof ctx[key] === 'function') {
-                    el.addEventListener('click', ctx[key]);
-                } else {
-                    if (!componentEl._pendingEvents) componentEl._pendingEvents = [];
-                    componentEl._pendingEvents.push({
-                        el,
-                        type,
-                        handlerName
-                    });
-                }
-
-            } else {
-
-                // Delay binding until ctx is available
-                if (!componentEl._pendingEvents) componentEl._pendingEvents = [];
-                componentEl._pendingEvents.push({
-                    el,
-                    type,
-                    handlerName
-                });
-            }
-
-            // console.log(componentEl._pendingEvents)
-
+                state[stateKey].splice(index, 1); // Proxy re-renders
+            });
             return;
         }
-    }    
+
+        // fallback: delay until ctx is ready
+        if (!componentEl._pendingEvents) componentEl._pendingEvents = [];
+        componentEl._pendingEvents.push({ el, type, handlerName });
+    }
+
 
     function foreachBinding(bindings, el, initialState, ctx) {
         if (bindings.foreach) {
@@ -463,12 +484,30 @@
 
     function applyText(el, key, type, state, subscribe) {
         if (type === 'text') {
-            el.textContent = state[key];
 
-            subscribe(key, val => {
-                el.textContent = Array.isArray(val) ? val.join(', ') : val;
-            });
-            return;
+            let parts = key.split('.')
+
+            if (parts.length == 1) {
+                el.textContent = state[key];
+
+                subscribe(key, val => {
+                    el.textContent = Array.isArray(val) ? val.join(', ') : val;
+                });
+
+                return;
+            }
+
+            // Case 2: dotted path like layout.firstName
+            if (parts.length === 2) {
+                let { state: targetState, subscribe: targetSubscribe, key: finalKey } = resolvePath(el, key);
+
+                el.textContent = targetState[finalKey];
+
+                // Subscribe to changes
+                targetSubscribe(finalKey, val => {
+                    el.textContent = Array.isArray(val) ? val.join(', ') : val;
+                });
+            }
         }
     }
 
@@ -955,6 +994,7 @@
 
         const { state, subscribe } = createReactiveState(initialState);
         componentEl.$state = state;
+        componentEl.$subscribe = subscribe;   // ✅ store it here
 
         // Second pass: bind all
         bindingsMap.forEach((data) => {
