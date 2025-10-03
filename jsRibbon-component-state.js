@@ -1,5 +1,398 @@
 (function () {
 
+    function textBinding(bindings, bindingsMap, el, initialState) {
+        let { text } = bindings;
+
+        if (text) {
+            bindingsMap.push({
+                el,
+                type: 'text',
+                key: text,
+                bindings: bindings
+            });
+            if (!(text in initialState)) {
+                const textVal = el.textContent.trim();
+                if (textVal) {
+                    if (!isInsideLoopOrWith(el)) {
+                        initialState[text] = textVal;
+                    }
+                } else {
+                    if (!isInsideLoopOrWith(el)) {
+                        initialState[text] = '';
+                    }
+                }
+            }
+        }
+    }
+
+    function applyText(el, key, type, state, subscribe) {
+        if (type === 'text') {
+
+            let parts = key.split('.')
+
+            if (parts.length == 1) {
+                el.textContent = state[key];
+
+                subscribe(key, val => {
+                    el.textContent = Array.isArray(val) ? val.join(', ') : val;
+                });
+
+                return;
+            }
+
+            // Case 2: dotted path like layout.firstName
+            if (parts.length === 2) {
+                let { state: targetState, subscribe: targetSubscribe, key: finalKey } = resolvePath(el, key);
+
+                el.textContent = targetState[finalKey];
+
+                // Subscribe to changes
+                targetSubscribe(finalKey, val => {
+                    el.textContent = Array.isArray(val) ? val.join(', ') : val;
+                });
+            }
+        }
+    }
+
+    function valueBinding(bindings, bindingsMap, el, keyUsageCount, initialState) {
+
+        let { value, update } = bindings;
+
+        if (value) {
+            bindingsMap.push({
+                el,
+                type: 'value',
+                key: value,
+                updateEvent: update || null,
+                bindings: bindings
+            });
+            keyUsageCount[value] = (keyUsageCount[value] || 0) + 1;
+
+            // Initialize value
+            if (!(value in initialState)) {
+                let val;
+                if (el.type === 'checkbox') {
+                    val = keyUsageCount[value] > 1 ? [] : !!el.checked;
+                } else if (el.type === 'radio') {
+                    if (el.checked) val = el.value;
+
+                } else if (el.type === 'number') {
+                    const num = parseFloat(el.value);
+                    val = isNaN(num) ? '' : num;
+                } else {
+                    val = el.value;
+                }
+
+                if (!isInsideLoopOrWith(el)) {
+                    initialState[value] = val;
+                }
+
+            } else {
+                // If this key already came from a text binding but we have an input with value
+                // → override it according to your priority
+                if (el.value && el.value.trim()) {
+                    if (!isInsideLoopOrWith(el)) {
+                        initialState[value] = el.value;
+                    }
+                }
+            }
+        }
+    }
+
+
+    function splitBindings(input) {
+        let result = [];
+        let current = '';
+        let depth = 0;
+
+        for (let i = 0; i < input.length; i++) {
+            let char = input[i];
+            if (char === '[') {
+                depth++;
+                current += char;
+            } else if (char === ']') {
+                depth--;
+                current += char;
+            } else if (char === ',' && depth === 0) {
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        if (current.trim()) result.push(current.trim());
+        return result;
+    }
+
+    function parseKeyValue(str) {
+        let idx = str.indexOf(':');
+        if (idx === -1) return [str.trim(), null];
+        return [str.slice(0, idx).trim(), str.slice(idx + 1).trim()];
+    }
+
+    function extractBindings(bindings) {
+        let refs = [];
+        let names = [];
+
+        bindings.forEach(binding => {
+            let [key, value] = parseKeyValue(binding);
+
+            if (key === 'value') {
+                refs.push(value);
+                names.push(key); // "value"
+            }
+            else if (key === 'click') {
+                // prepend parent context if missing dot
+                if (!value.includes('.')) refs.push('cart.' + value);
+                else refs.push(value);
+                names.push(key); // "click"
+            }
+            else if (key === 'class' || key === 'attr') {
+                let inner = value.replace(/^\[|\]$/g, '').trim();
+                let parts = splitBindings(inner);
+                parts.forEach(p => {
+                    let [from, to] = p.split('=>').map(x => x.trim());
+                    refs.push(from);
+                    names.push(to); // take right-hand DOM binding
+                });
+            }
+            else if (key === 'foreach') {
+                let inner = value.replace(/^\[|\]$/g, '').trim();
+                let parts = splitBindings(inner);
+                parts.forEach(p => {
+                    let [k, v] = parseKeyValue(p);
+                    if (k === 'data') {
+                        refs.push(v);
+                        names.push(key); // "foreach"
+                    }
+                });
+            }
+        });
+
+        return { refs, names };
+    }
+
+    function resolveStateAndKey(componentEl, fullKey, state, subscribe) {
+
+        const parts = fullKey.split('.');
+
+        if (parts.length === 1) {
+            return { state: state[fullKey], subscribe: subscribe, key: fullKey };
+        }
+
+        let result = resolvePath(componentEl, key);
+
+        return { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
+    }
+
+    /*
+    function applyValue(el, key, type, state, updateEvent, subscribe, keyUsageCount) {
+
+        if (type === 'value' && el instanceof HTMLInputElement) {
+
+            const inputType = el.type;
+            const fallbackEvent = inputType === 'checkbox' || inputType === 'radio' ? 'change' : 'input';
+            const eventToUse = updateEvent || fallbackEvent;
+
+            if (inputType === 'checkbox') {
+                const checkboxValue = el.value;
+                const isGrouped = Array.isArray(state[key]) || keyUsageCount[key] > 1;
+
+                if (isGrouped) {
+                    if (!Array.isArray(state[key])) {
+                        state[key] = [];
+                    }
+
+                    el.checked = state[key].includes(checkboxValue);
+
+                    el.addEventListener(eventToUse, () => {
+                        const current = new Set(state[key]);
+
+                        if (el.checked) {
+                            current.add(checkboxValue);
+                        } else {
+                            current.delete(checkboxValue);
+                        }
+
+                        state[key] = [...current];
+                    });
+
+                    subscribe(key, val => {
+                        el.checked = val.includes(checkboxValue);
+                    });
+                } else {
+                    el.checked = !!state[key];
+
+                    el.addEventListener(eventToUse, () => {
+                        state[key] = el.checked;
+                    });
+
+                    subscribe(key, val => {
+                        el.checked = !!val;
+                    });
+                }
+
+                return;
+            }
+
+            if (inputType === 'radio') {
+                const radioValue = el.value;
+
+                // Set initially checked radio if not already set
+                if (!(key in state) && el.checked) {
+                    state[key] = radioValue;
+                }
+
+                // Reflect current state into DOM
+                el.checked = state[key] === radioValue;
+
+                // When user selects a radio, update state
+                el.addEventListener(eventToUse, () => {
+                    if (el.checked) {
+                        state[key] = radioValue;
+                    }
+                });
+
+                // When state changes, update which radio is checked
+                subscribe(key, val => {
+                    el.checked = val === radioValue;
+                });
+
+                return;
+            }
+
+            // For text/number/etc
+            const min = el.hasAttribute('min') ? parseFloat(el.getAttribute('min')) : null;
+            const max = el.hasAttribute('max') ? parseFloat(el.getAttribute('max')) : null;
+
+            el.value = state[key];
+
+            el.addEventListener(eventToUse, e => {
+                let val = e.target.value;
+
+                if (inputType === 'number') {
+                    val = parseFloat(val);
+                    if (!isNaN(val)) {
+                        if (min !== null && val < min) val = min;
+                        if (max !== null && val > max) val = max;
+                    } else {
+                        val = '';
+                    }
+                }
+
+                state[key] = val;
+            });
+
+            subscribe(key, val => {
+                if (el.value !== val) el.value = val;
+            });
+        }
+    }
+    */
+
+    function applyValue(el, key, type, state, updateEvent, subscribe, keyUsageCount) {
+
+        if (type === 'value' && el instanceof HTMLInputElement) {
+
+            const inputType = el.type;
+            const fallbackEvent = inputType === 'checkbox' || inputType === 'radio' ? 'change' : 'input';
+            const eventToUse = updateEvent || fallbackEvent;
+
+            if (inputType === 'checkbox') {
+                const checkboxValue = el.value;
+                const isGrouped = Array.isArray(state[key]) || keyUsageCount[key] > 1;
+
+                if (isGrouped) {
+                    if (!Array.isArray(state[key])) {
+                        state[key] = [];
+                    }
+
+                    el.checked = state[key].includes(checkboxValue);
+
+                    el.addEventListener(eventToUse, () => {
+                        const current = new Set(state[key]);
+
+                        if (el.checked) {
+                            current.add(checkboxValue);
+                        } else {
+                            current.delete(checkboxValue);
+                        }
+
+                        state[key] = [...current];
+                    });
+
+                    subscribe(key, val => {
+                        el.checked = val.includes(checkboxValue);
+                    });
+                } else {
+                    el.checked = !!state[key];
+
+                    el.addEventListener(eventToUse, () => {
+                        state[key] = el.checked;
+                    });
+
+                    subscribe(key, val => {
+                        el.checked = !!val;
+                    });
+                }
+
+                return;
+            }
+
+            if (inputType === 'radio') {
+                const radioValue = el.value;
+
+                // Set initially checked radio if not already set
+                if (!(key in state) && el.checked) {
+                    state[key] = radioValue;
+                }
+
+                // Reflect current state into DOM
+                el.checked = state[key] === radioValue;
+
+                // When user selects a radio, update state
+                el.addEventListener(eventToUse, () => {
+                    if (el.checked) {
+                        state[key] = radioValue;
+                    }
+                });
+
+                // When state changes, update which radio is checked
+                subscribe(key, val => {
+                    el.checked = val === radioValue;
+                });
+
+                return;
+            }
+
+            // For text/number/etc
+            const min = el.hasAttribute('min') ? parseFloat(el.getAttribute('min')) : null;
+            const max = el.hasAttribute('max') ? parseFloat(el.getAttribute('max')) : null;
+
+            el.value = state[key];
+
+            el.addEventListener(eventToUse, e => {
+                let val = e.target.value;
+
+                if (inputType === 'number') {
+                    val = parseFloat(val);
+                    if (!isNaN(val)) {
+                        if (min !== null && val < min) val = min;
+                        if (max !== null && val > max) val = max;
+                    } else {
+                        val = '';
+                    }
+                }
+
+                state[key] = val;
+            });
+
+            subscribe(key, val => {
+                if (el.value !== val) el.value = val;
+            });
+        }
+    }
+
     function resolveBindingKey(binding) {
         if (!binding) return null;
 
@@ -482,207 +875,6 @@
         }
     }
 
-    function applyText(el, key, type, state, subscribe) {
-        if (type === 'text') {
-
-            let parts = key.split('.')
-
-            if (parts.length == 1) {
-                el.textContent = state[key];
-
-                subscribe(key, val => {
-                    el.textContent = Array.isArray(val) ? val.join(', ') : val;
-                });
-
-                return;
-            }
-
-            // Case 2: dotted path like layout.firstName
-            if (parts.length === 2) {
-                let { state: targetState, subscribe: targetSubscribe, key: finalKey } = resolvePath(el, key);
-
-                el.textContent = targetState[finalKey];
-
-                // Subscribe to changes
-                targetSubscribe(finalKey, val => {
-                    el.textContent = Array.isArray(val) ? val.join(', ') : val;
-                });
-            }
-        }
-    }
-
-    function textBinding(bindings, bindingsMap, el, initialState) {
-        let { text } = bindings;
-
-        if (text) {
-            bindingsMap.push({
-                el,
-                type: 'text',
-                key: text,
-                bindings: bindings
-            });
-            if (!(text in initialState)) {
-                const textVal = el.textContent.trim();
-                if (textVal) {
-                    if (!isInsideLoopOrWith(el)) {
-                        initialState[text] = textVal;
-                    }
-                } else {
-                    if (!isInsideLoopOrWith(el)) {
-                        initialState[text] = '';
-                    }
-                }
-            }
-        }
-    }
-
-    function applyValue(el, key, type, state, updateEvent, subscribe, keyUsageCount) {
-
-        if (type === 'value' && el instanceof HTMLInputElement) {
-            const inputType = el.type;
-            const fallbackEvent = inputType === 'checkbox' || inputType === 'radio' ? 'change' : 'input';
-            const eventToUse = updateEvent || fallbackEvent;
-
-            if (inputType === 'checkbox') {
-                const checkboxValue = el.value;
-                const isGrouped = Array.isArray(state[key]) || keyUsageCount[key] > 1;
-
-                if (isGrouped) {
-                    if (!Array.isArray(state[key])) {
-                        state[key] = [];
-                    }
-
-                    el.checked = state[key].includes(checkboxValue);
-
-                    el.addEventListener(eventToUse, () => {
-                        const current = new Set(state[key]);
-
-                        if (el.checked) {
-                            current.add(checkboxValue);
-                        } else {
-                            current.delete(checkboxValue);
-                        }
-
-                        state[key] = [...current];
-                    });
-
-                    subscribe(key, val => {
-                        el.checked = val.includes(checkboxValue);
-                    });
-                } else {
-                    el.checked = !!state[key];
-
-                    el.addEventListener(eventToUse, () => {
-                        state[key] = el.checked;
-                    });
-
-                    subscribe(key, val => {
-                        el.checked = !!val;
-                    });
-                }
-
-                return;
-            }
-
-            if (inputType === 'radio') {
-                const radioValue = el.value;
-
-                // Set initially checked radio if not already set
-                if (!(key in state) && el.checked) {
-                    state[key] = radioValue;
-                }
-
-                // Reflect current state into DOM
-                el.checked = state[key] === radioValue;
-
-                // When user selects a radio, update state
-                el.addEventListener(eventToUse, () => {
-                    if (el.checked) {
-                        state[key] = radioValue;
-                    }
-                });
-
-                // When state changes, update which radio is checked
-                subscribe(key, val => {
-                    el.checked = val === radioValue;
-                });
-
-                return;
-            }
-
-            // For text/number/etc
-            const min = el.hasAttribute('min') ? parseFloat(el.getAttribute('min')) : null;
-            const max = el.hasAttribute('max') ? parseFloat(el.getAttribute('max')) : null;
-
-            el.value = state[key];
-
-            el.addEventListener(eventToUse, e => {
-                let val = e.target.value;
-
-                if (inputType === 'number') {
-                    val = parseFloat(val);
-                    if (!isNaN(val)) {
-                        if (min !== null && val < min) val = min;
-                        if (max !== null && val > max) val = max;
-                    } else {
-                        val = '';
-                    }
-                }
-
-                state[key] = val;
-            });
-
-            subscribe(key, val => {
-                if (el.value !== val) el.value = val;
-            });
-        }
-    }
-
-    function valueBinding(bindings, bindingsMap, el, keyUsageCount, initialState) {
-
-        let { value, update } = bindings;
-
-        if (value) {
-            bindingsMap.push({
-                el,
-                type: 'value',
-                key: value,
-                updateEvent: update || null,
-                bindings: bindings
-            });
-            keyUsageCount[value] = (keyUsageCount[value] || 0) + 1;
-
-            // Initialize value
-            if (!(value in initialState)) {
-                let val;
-                if (el.type === 'checkbox') {
-                    val = keyUsageCount[value] > 1 ? [] : !!el.checked;
-                } else if (el.type === 'radio') {
-                    if (el.checked) val = el.value;
-
-                } else if (el.type === 'number') {
-                    const num = parseFloat(el.value);
-                    val = isNaN(num) ? '' : num;
-                } else {
-                    val = el.value;
-                }
-
-                if (!isInsideLoopOrWith(el)) {
-                    initialState[value] = val;
-                }
-
-            } else {
-                // If this key already came from a text binding but we have an input with value
-                // → override it according to your priority
-                if (el.value && el.value.trim()) {
-                    if (!isInsideLoopOrWith(el)) {
-                        initialState[value] = el.value;
-                    }
-                }
-            }
-        }
-    }
-
     function applySelect(el, key, type, state, update, subscribe) {
         // ✅ SELECT element
         if (type === 'value' && el instanceof HTMLSelectElement) {
@@ -842,6 +1034,39 @@
 
     function applyAttribute(el, key, type, state, update, subscribe) {
         if (type === 'attr') {
+
+            const parts = key.split('.');
+
+            if (parts.length > 1) {
+
+                let bindings = splitBindings(`attr:${key}`);
+                let { refs: finalBindings, names: bindingNames } = extractBindings(bindings);
+
+                finalBindings.forEach((current,index) => {
+                    let result = resolvePath(el, current);
+                    let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
+
+                    try {
+
+                        let attrName = bindingNames[index];
+
+                        console.log(attrName)
+                        // Initial set
+                        el.setAttribute(attrName, targetState[finalKey] ?? '');
+
+                        // Reactive
+                        targetSubscribe(finalKey, val => {
+                            el.setAttribute(attrName, val ?? '');
+                        });
+
+                    } catch (e) {
+                        console.warn('Invalid attr binding:', key);
+                    }
+                })
+
+                return;
+            }
+
             try {
                 const cleaned = key.trim().replace(/^\[|\]$/g, '').trim();
                 const pairs = cleaned.split(',').map(pair => pair.trim());
@@ -980,7 +1205,7 @@
         bindables.forEach(el => {
             const bindings = parseBindings(el.getAttribute('data-bind'));
 
-            textBinding(bindings, bindingsMap, el, initialState);
+            textBinding(bindings, bindingsMap, el, initialState); //done
             valueBinding(bindings, bindingsMap, el, keyUsageCount, initialState);
             toggleBinding(bindings, bindingsMap, el, initialState);
             visibleBinding(bindings, bindingsMap, el, initialState);
@@ -988,7 +1213,9 @@
             classBinding(bindings, initialState, el, bindingsMap);
             attributeBinding(bindings, initialState, el, bindingsMap);
             submitBinding(bindings, bindingsMap, el);
-            eventBinding(bindings, bindingsMap, el);
+
+            eventBinding(bindings, bindingsMap, el); // done
+
             foreachBinding(bindings, el, initialState, ctx);
         });
 
@@ -1002,7 +1229,7 @@
             let { el, updateEvent, bindings } = data;
 
             Object.entries(bindings).forEach(([type, key]) => {
-                applyText(el, key, type, state, subscribe)
+                applyText(el, key, type, state, subscribe) // done
                 applyValue(el, key, type, state, updateEvent, subscribe, keyUsageCount)
                 applySelect(el, key, type, state, updateEvent, subscribe)
                 applyTextArea(el, key, type, state, updateEvent, subscribe);
@@ -1015,7 +1242,7 @@
                 applyClass(el, key, type, state, updateEvent, subscribe)
                 applyAttribute(el, key, type, state, updateEvent, subscribe)
                 applySubmit(el, key, type, bindings, componentEl)
-                applyEvent(el, key, type, state, updateEvent, subscribe, componentEl)
+                applyEvent(el, key, type, state, updateEvent, subscribe, componentEl) // done
                 applyForeach(el, key, type, state, updateEvent, subscribe)
             });
         });

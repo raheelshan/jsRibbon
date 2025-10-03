@@ -32,8 +32,10 @@
             <hr />
             Readonly and Disabled
             <div data-bind="component:Login">
-                <p>Readonly: <input name="lastName" type="text" data-bind="value: lastName, readonly:isLocked" value="Shan" /></p>
-                <p>Disabled: <input name="firstName" type="text" data-bind="value: firstName, disabled:isLocked" value="Raheel" /></p>
+                <p>Readonly: <input name="lastName" type="text" data-bind="value: lastName, isLocked : readonly" value="Shan" /></p>
+                <p>Disabled: <input name="firstName" type="text" data-bind="value: firstName, isLocked : disabled" value="Raheel" /></p>
+
+            
                 <h2>
                     Hello, <span data-bind="text: firstName"> </span> <span data-bind="text: lastName"> </span>
                 </h2>

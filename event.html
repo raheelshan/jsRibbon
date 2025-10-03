@@ -12,8 +12,8 @@
 
         jsRibbon.component('ClickCheck', ($state) => {
 
-            const handleClick = () => {
-                console.log('Main $state:', $state);
+            const handleClick = (event) => {
+                console.log('Main $state:', $state, event.target);
             };
 
             const handleHover = () => {

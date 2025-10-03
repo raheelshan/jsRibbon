@@ -12,8 +12,8 @@
 
     jsRibbon.component('Layout', ($state) => {
 
-        const handleClick = () => {
-            console.log('Main $state:', $state);
+        const handleClick = (localState) => {
+            console.log('Main $state:', $state, localState);
         };
 
         return { handleClick };
@@ -22,11 +22,11 @@
 
 <body>
     <div id="container">
-
+        Text and Event in Context
         <div data-bind="component:Layout, context : layout">
             <input type="text" name="name" value="Raheel" data-bind="value: firstName">
             <span data-bind="text:firstName"></span>
-            <button data-bind="click:handleClick">Clck Me</button>
+            <button data-bind="click:handleClick">Click Me</button>
 
             <div data-bind="component:Header" style="width: 600px; height:50px; background-color: pink;">
                 <span data-bind="text:layout.firstName"></span>
@@ -42,7 +42,7 @@
                     <span data-bind="text:layout.firstName"></span>
                     <span data-bind="text:content.lastName"></span>
                     <span data-bind="text:title">Container</span>
-                    <button data-bind="click : layout.handleClick">Clck Me</button>
+                    <button data-bind="click : layout.handleClick">Click Me</button>
                 </div>
             </div>
 
@@ -51,6 +51,32 @@
                 <span data-bind="text:title">Footer</span>
             </div>
 
+        </div>
+
+        Attributes in Context
+        <div id="container">
+            <div data-bind="component:Attribute, context : attribute">
+                <div>
+                    Title: <input name="title" type="text" data-bind="value: titleText" /><br>
+                    Placeholder: <input name="placeholder" type="text" data-bind="value: placeholderText" /><br>
+                    Link: <input name="link" type="text" data-bind="value: linkText" /><br>
+                    <a data-bind="attr: [ titleText => title, placeholderText => placeholder, linkText => href ]">Click
+                        Me</a>
+                </div>
+
+                <div data-bind="component:ChlidAttribute">
+                    <div>
+                        <a
+                            data-bind="attr: [ attribute.titleText => title, attribute.placeholderText => placeholder, attribute.linkText => href ]">Click
+                            Me</a>
+
+                        <!-- <input type="text" name="name" value="Raheel"
+                            data-bind="value: cart.firstName, class: [ cart.isHidden => hidden, cart.isPink => pink ] , attr: [ cart.titleText => title, cart.placeholderText => placeholder ]"> -->
+
+                        </span>
+                    </div>
+                </div>
+            </div>
         </div>
 
 
