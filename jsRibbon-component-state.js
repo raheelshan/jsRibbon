@@ -28,29 +28,19 @@
     function applyText(el, key, type, state, subscribe) {
         if (type === 'text') {
 
-            let parts = key.split('.')
+            const parts = key.split('.');
 
-            if (parts.length == 1) {
-                el.textContent = state[key];
-
-                subscribe(key, val => {
-                    el.textContent = Array.isArray(val) ? val.join(', ') : val;
-                });
-
-                return;
+            if (parts.length > 1) {
+                ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
             }
 
-            // Case 2: dotted path like layout.firstName
-            if (parts.length === 2) {
-                let { state: targetState, subscribe: targetSubscribe, key: finalKey } = resolvePath(el, key);
+            el.textContent = state[key];
 
-                el.textContent = targetState[finalKey];
+            subscribe(key, val => {
+                el.textContent = Array.isArray(val) ? val.join(', ') : val;
+            });
 
-                // Subscribe to changes
-                targetSubscribe(finalKey, val => {
-                    el.textContent = Array.isArray(val) ? val.join(', ') : val;
-                });
-            }
+            return;
         }
     }
 
@@ -171,124 +161,6 @@
         return { refs, names };
     }
 
-    function resolveStateAndKey(componentEl, fullKey, state, subscribe) {
-
-        const parts = fullKey.split('.');
-
-        if (parts.length === 1) {
-            return { state: state[fullKey], subscribe: subscribe, key: fullKey };
-        }
-
-        let result = resolvePath(componentEl, key);
-
-        return { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
-    }
-
-    /*
-    function applyValue(el, key, type, state, updateEvent, subscribe, keyUsageCount) {
-
-        if (type === 'value' && el instanceof HTMLInputElement) {
-
-            const inputType = el.type;
-            const fallbackEvent = inputType === 'checkbox' || inputType === 'radio' ? 'change' : 'input';
-            const eventToUse = updateEvent || fallbackEvent;
-
-            if (inputType === 'checkbox') {
-                const checkboxValue = el.value;
-                const isGrouped = Array.isArray(state[key]) || keyUsageCount[key] > 1;
-
-                if (isGrouped) {
-                    if (!Array.isArray(state[key])) {
-                        state[key] = [];
-                    }
-
-                    el.checked = state[key].includes(checkboxValue);
-
-                    el.addEventListener(eventToUse, () => {
-                        const current = new Set(state[key]);
-
-                        if (el.checked) {
-                            current.add(checkboxValue);
-                        } else {
-                            current.delete(checkboxValue);
-                        }
-
-                        state[key] = [...current];
-                    });
-
-                    subscribe(key, val => {
-                        el.checked = val.includes(checkboxValue);
-                    });
-                } else {
-                    el.checked = !!state[key];
-
-                    el.addEventListener(eventToUse, () => {
-                        state[key] = el.checked;
-                    });
-
-                    subscribe(key, val => {
-                        el.checked = !!val;
-                    });
-                }
-
-                return;
-            }
-
-            if (inputType === 'radio') {
-                const radioValue = el.value;
-
-                // Set initially checked radio if not already set
-                if (!(key in state) && el.checked) {
-                    state[key] = radioValue;
-                }
-
-                // Reflect current state into DOM
-                el.checked = state[key] === radioValue;
-
-                // When user selects a radio, update state
-                el.addEventListener(eventToUse, () => {
-                    if (el.checked) {
-                        state[key] = radioValue;
-                    }
-                });
-
-                // When state changes, update which radio is checked
-                subscribe(key, val => {
-                    el.checked = val === radioValue;
-                });
-
-                return;
-            }
-
-            // For text/number/etc
-            const min = el.hasAttribute('min') ? parseFloat(el.getAttribute('min')) : null;
-            const max = el.hasAttribute('max') ? parseFloat(el.getAttribute('max')) : null;
-
-            el.value = state[key];
-
-            el.addEventListener(eventToUse, e => {
-                let val = e.target.value;
-
-                if (inputType === 'number') {
-                    val = parseFloat(val);
-                    if (!isNaN(val)) {
-                        if (min !== null && val < min) val = min;
-                        if (max !== null && val > max) val = max;
-                    } else {
-                        val = '';
-                    }
-                }
-
-                state[key] = val;
-            });
-
-            subscribe(key, val => {
-                if (el.value !== val) el.value = val;
-            });
-        }
-    }
-    */
-
     function applyValue(el, key, type, state, updateEvent, subscribe, keyUsageCount) {
 
         if (type === 'value' && el instanceof HTMLInputElement) {
@@ -296,14 +168,7 @@
             const parts = key.split('.');
 
             if (parts.length > 1) {
-
-                let result = resolvePath(el, key);
-
-                let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
-
-                state = targetState;
-                key = finalKey;
-                subscribe = targetSubscribe
+                ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
             }
 
             const inputType = el.type;
@@ -658,7 +523,7 @@
         });
     }
 
-    function applyEvent(el, key, type, state, update, subscribe, componentEl) {
+    function applyEvent(el, key, type, state, componentEl) {
 
         const supportedEvents = [
             'click', 'change', 'input', 'blur', 'focus',
@@ -895,6 +760,13 @@
     function applySelect(el, key, type, state, update, subscribe) {
         // ✅ SELECT element
         if (type === 'value' && el instanceof HTMLSelectElement) {
+
+            const parts = key.split('.');
+
+            if (parts.length > 1) {
+                ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
+            }
+
             const eventToUse = update || 'change';
 
             el.value = state[key];
@@ -914,6 +786,14 @@
     function applyTextArea(el, key, type, state, update, subscribe,) {
         // ✅ TEXTAREA element
         if (type === 'value' && el instanceof HTMLTextAreaElement) {
+
+            const parts = key.split('.');
+
+            // context havng event not done yet 
+            if (parts.length > 1) {
+                ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
+            }
+
             const eventToUse = update || 'input';
 
             el.value = state[key];
@@ -932,6 +812,13 @@
 
     function applyFocused(el, key, type, state, update, subscribe) {
         if (type === 'focused') {
+
+            const parts = key.split('.');
+
+            if (parts.length > 1) {
+                ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
+            }
+
             // Update state when user focuses or blurs input
             el.addEventListener('focus', () => {
                 state[key] = true;
@@ -961,30 +848,7 @@
             const parts = key.split('.');
 
             if (parts.length > 1) {
-
-                let result = resolvePath(el, key);
-
-                let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
-
-                try {
-
-                    const applyVisibility = (val) => {
-                        el.style.display = val ? '' : 'none';
-                    };
-
-                    // Initial
-                    applyVisibility(targetState[finalKey]);
-
-                    // React on change
-                    targetSubscribe(finalKey, val => {
-                        applyVisibility(val);
-                    });
-
-                } catch (e) {
-                    console.warn('Invalid visible binding:', key);
-                }
-
-                return;
+                ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
             }
 
             const applyVisibility = (val) => {
@@ -1009,23 +873,7 @@
             const parts = key.split('.');
 
             if (parts.length > 1) {
-
-                let result = resolvePath(el, key);
-
-                let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
-
-                try {
-
-                    el.readOnly = !!targetState[finalKey];
-                    targetSubscribe(finalKey, val => {
-                        el.readOnly = !!val;
-                    });
-
-                } catch (e) {
-                    console.warn('Invalid visible binding:', finalKey);
-                }
-
-                return;
+                ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
             }
 
             el.readOnly = !!state[key];
@@ -1042,23 +890,7 @@
             const parts = key.split('.');
 
             if (parts.length > 1) {
-
-                let result = resolvePath(el, key);
-
-                let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
-
-                try {
-
-                    el.disabled = !!targetState[finalKey];
-                    targetSubscribe(finalKey, val => {
-                        el.disabled = !!val;
-                    });
-
-                } catch (e) {
-                    console.warn('Invalid visible binding:', finalKey);
-                }
-
-                return;
+                ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
             }
 
             el.disabled = !!state[key];
@@ -1072,6 +904,13 @@
     function applyCheckboxToggle(el, key, type, state, update, subscribe, componentEl) {
         // ✅ Select-All checkbox logic
         if (type === 'toggle' && el instanceof HTMLInputElement && el.type === 'checkbox') {
+
+            const parts = key.split('.');
+
+            if (parts.length > 1) {
+                ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
+            }
+
             el.addEventListener('change', () => {
                 const groupCheckboxes = componentEl.querySelectorAll(`input[type="checkbox"][data-bind*="value:${key}"]`);
                 const values = Array.from(groupCheckboxes).map(c => c.value);
@@ -1088,6 +927,13 @@
 
     function applyHtml(el, key, type, state, update, subscribe) {
         if (type === 'html') {
+
+            const parts = key.split('.');
+
+            if (parts.length > 1) {
+                ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
+            }
+
             // Initial render
             el.innerHTML = state[key];
 
@@ -1219,6 +1065,13 @@
 
     function applySubmit(el, key, type, bindings, componentEl) {
         if (type === 'submit' && el instanceof HTMLFormElement) {
+
+            const parts = key.split('.');
+
+            if (parts.length > 1) {
+                ({ key } = resolvePath(el, key) || { key });
+            }
+
             const behavior = key.trim(); // ajax or default
             const swap = bindings.swap?.trim() || 'innerHTML';
 
@@ -1367,7 +1220,7 @@
                 applyClass(el, key, type, state, updateEvent, subscribe)
                 applyAttribute(el, key, type, state, updateEvent, subscribe)
                 applySubmit(el, key, type, bindings, componentEl)
-                applyEvent(el, key, type, state, updateEvent, subscribe, componentEl) // done
+                applyEvent(el, key, type, state, componentEl) // done
                 applyForeach(el, key, type, state, updateEvent, subscribe)
             });
         });

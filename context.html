@@ -152,7 +152,7 @@
             </div>
         </div> -->
 
-        Value in Context
+        <!-- Value in Context
         <div data-bind="component:TextComponent, context : textComponent">
             <input type="text" name="name" value="Raheel Shan" data-bind="value: name">
             <span data-bind="text:name">Saleem</span>
@@ -161,9 +161,27 @@
                 <input type="text" name="name" value="Raheel Shan" data-bind="value: textComponent.name">
                 <span data-bind="text:textComponent.name">Saleem</span>
             </div>
+        </div> -->
+        Checkbox in Context
+        <div data-bind="component:Parent, context : parent">
+            <!-- <label><input type="checkbox" data-bind="toggle:skills" /> Select All</label> -->
+
+            <label><input type="checkbox" value="HTML" data-bind="value:skills" /> HTML</label>
+            <label><input type="checkbox" value="CSS" data-bind="value:skills" /> CSS</label>
+            <label><input type="checkbox" value="JS" data-bind="value:skills" /> JavaScript</label>
+
+            <p>Selected: <span data-bind="text:skills"></span></p>
+
+            <div data-bind="component:ChlidClass">
+                <label><input type="checkbox" data-bind="toggle:parent.skills" /> Select All</label>
+
+                <label><input type="checkbox" value="HTML" data-bind="value:parent.skills" /> HTML</label>
+                <label><input type="checkbox" value="CSS" data-bind="value:parent.skills" /> CSS</label>
+                <label><input type="checkbox" value="JS" data-bind="value:parent.skills" /> JavaScript</label>
+
+                <p>Selected: <span data-bind="text:parent.skills"></span></p>
+            </div>
         </div>
-
-
     </div>
 </body>
 
