@@ -405,11 +405,19 @@
 
     function toTitleCase(str) {
         return str
-            .toLowerCase()
-            .split(' ')
+            // Insert space before each uppercase letter (e.g. classChecker → class Checker)
+            .replace(/([a-z])([A-Z])/g, '$1 $2')
+            // Split by space or underscore
+            .split(/[\s_]+/)
+            // Capitalize each word
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
+            // Join without spaces to form TitleCase
+            .join('');
     }
+
+    // function toTitleCase(str) {
+    //     return str.charAt(0).toLowerCase() + str.slice(1);
+    // }    
 
     function resolvePath(componentEl, fullKey) {
 
@@ -643,6 +651,7 @@
     }
 
     function applyEvent(el, key, type, state, update, subscribe, componentEl) {
+
         const supportedEvents = [
             'click', 'change', 'input', 'blur', 'focus',
             'keydown', 'keyup', 'keypress',
@@ -684,7 +693,6 @@
         if (!componentEl._pendingEvents) componentEl._pendingEvents = [];
         componentEl._pendingEvents.push({ el, type, handlerName });
     }
-
 
     function foreachBinding(bindings, el, initialState, ctx) {
         if (bindings.foreach) {
@@ -1007,6 +1015,37 @@
 
     function applyClass(el, key, type, state, update, subscribe) {
         if (type === 'class') {
+
+            const parts = key.split('.');
+
+            if (parts.length > 1) {
+
+                let bindings = splitBindings(`${type}:${key}`);
+                let { refs: finalBindings, names: bindingNames } = extractBindings(bindings);
+                console.log(finalBindings, bindingNames)
+
+                finalBindings.forEach((current, index) => {
+
+                    let result = resolvePath(el, current);
+
+                    let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
+
+                    let className = bindingNames[index];
+
+                    try {
+                        // Apply initial state
+                        el.classList.toggle(className, !!targetState[finalKey]);
+
+                        // Subscribe for updates
+                        targetSubscribe(finalKey, (val) => {
+                            el.classList.toggle(className, !!val);
+                        });
+                    } catch (e) {
+                        console.warn('Invalid class binding:', key);
+                    }
+                })
+            }
+
             try {
                 const cleaned = key.trim().replace(/^\[|\]$/g, '').trim();
                 const pairs = cleaned.split(',').map(pair => pair.trim());
@@ -1042,7 +1081,7 @@
                 let bindings = splitBindings(`attr:${key}`);
                 let { refs: finalBindings, names: bindingNames } = extractBindings(bindings);
 
-                finalBindings.forEach((current,index) => {
+                finalBindings.forEach((current, index) => {
                     let result = resolvePath(el, current);
                     let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
 

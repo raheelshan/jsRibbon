@@ -1,7 +1,15 @@
 <html>
 
 <head>
+    <style>
+        .pink {
+            background-color: pink;
+        }
 
+        .hidden {
+            display: none;
+        }
+    </style>
 </head>
 <script src="./jsRibbon-enhance-form.js"></script>
 <script src="./jsRibbon-component-state.js"></script>
@@ -10,10 +18,10 @@
     jsRibbon.autoRegister = true;
     console.log(jsRibbon.getComponents());
 
-    jsRibbon.component('Layout', ($state) => {
+    jsRibbon.component('Layout', ($state, rootElement) => {
 
-        const handleClick = (localState) => {
-            console.log('Main $state:', $state, localState);
+        const handleClick = (event) => {
+            console.log('Component State:', $state, rootElement, event.target);
         };
 
         return { handleClick };
@@ -70,14 +78,33 @@
                             data-bind="attr: [ attribute.titleText => title, attribute.placeholderText => placeholder, attribute.linkText => href ]">Click
                             Me</a>
 
-                        <!-- <input type="text" name="name" value="Raheel"
-                            data-bind="value: cart.firstName, class: [ cart.isHidden => hidden, cart.isPink => pink ] , attr: [ cart.titleText => title, cart.placeholderText => placeholder ]"> -->
-
                         </span>
                     </div>
                 </div>
             </div>
         </div>
+
+        Class in Context
+        <div id="container">
+
+            <div data-bind="component:ClassChecker, context : classChecker">
+                <input type="checkbox" data-bind="value:isHidden" id="toggle" /> <label for="toggle">Toggle Hide/Show</label>
+                <input type="checkbox" data-bind="value:isPink"  id="color"/> <label for="color">Toggle Pink/Green</label>
+                <hr>
+                <div data-bind="class: [ isHidden => hidden, isPink => pink ]" class="">
+                    <input name="firstName" type="text"
+                        data-bind="value: firstName, class: [ isHidden => hidden, isPink => pink ]" value="Raheel" />
+                </div>
+
+                <div data-bind="component:ChlidClass">
+                    <div data-bind="class: [ classChecker.isHidden => hidden, classChecker.isPink => pink ]" class="">
+                        Hello
+                    </div>
+                </div>
+        
+            </div>              
+
+        </div>        
 
 
     </div>
