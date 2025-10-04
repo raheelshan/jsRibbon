@@ -412,7 +412,7 @@
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             // Join without spaces to form TitleCase
             .join('');
-    }   
+    }
 
     function resolvePath(componentEl, fullKey) {
 
@@ -950,9 +950,9 @@
             if (parts.length > 1) {
 
                 let result = resolvePath(el, key);
-                
+
                 let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
-                
+
                 try {
 
                     const applyVisibility = (val) => {
@@ -965,7 +965,7 @@
                     // React on change
                     targetSubscribe(finalKey, val => {
                         applyVisibility(val);
-                    });                   
+                    });
 
                 } catch (e) {
                     console.warn('Invalid visible binding:', key);
@@ -992,16 +992,64 @@
 
     function applyReadOnly(el, key, type, state, update, subscribe) {
         if (type === 'readonly') {
+
+            const parts = key.split('.');
+
+            if (parts.length > 1) {
+
+                let result = resolvePath(el, key);
+
+                let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
+
+                try {
+
+                    el.readOnly = !!targetState[finalKey];
+                    targetSubscribe(finalKey, val => {
+                        el.readOnly = !!val;
+                    });
+
+                } catch (e) {
+                    console.warn('Invalid visible binding:', finalKey);
+                }
+
+                return;
+            }
+
             el.readOnly = !!state[key];
             subscribe(key, val => {
                 el.readOnly = !!val;
             });
+
         }
     }
 
     function applyDisabled(el, key, type, state, update, subscribe) {
         if (type === 'disabled') {
+
+            const parts = key.split('.');
+
+            if (parts.length > 1) {
+
+                let result = resolvePath(el, key);
+
+                let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
+
+                try {
+
+                    el.disabled = !!targetState[finalKey];
+                    targetSubscribe(finalKey, val => {
+                        el.disabled = !!val;
+                    });
+
+                } catch (e) {
+                    console.warn('Invalid visible binding:', finalKey);
+                }
+
+                return;
+            }
+
             el.disabled = !!state[key];
+
             subscribe(key, val => {
                 el.disabled = !!val;
             });

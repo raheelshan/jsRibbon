@@ -121,8 +121,7 @@
 
         </div>         -->
 
-        Visibility in Context
-
+        <!-- Visibility in Context
         <div data-bind="component:Visibility , context : visibility">
             <label>
                 <input type="checkbox" data-bind="value:isVisible" checked /> Visible Mode
@@ -135,6 +134,21 @@
                 <div data-bind="visible: visibility.isVisible">
                     H there
                 </div>
+            </div>
+        </div> -->
+
+        Readonly and Disabled in Context
+        <div data-bind="component:Lock , context : lock">
+            <label>
+                <input type="checkbox" data-bind="value:isLocked"  /> Lock Mode
+            </label>
+
+            <div data-bind="component:Container">
+                <p>Readonly: <input name="lastName" type="text" data-bind="value: lastName, readonly: lock.isLocked "
+                        value="Shan" /></p>
+                <p>Disabled: <input name="firstName" type="text" data-bind="value: firstName, disabled: lock.isLocked "
+                        value="Raheel" /></p>
+
             </div>
         </div>
 
