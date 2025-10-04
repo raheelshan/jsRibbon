@@ -99,7 +99,6 @@
         }
     }
 
-
     function splitBindings(input) {
         let result = [];
         let current = '';
@@ -413,11 +412,7 @@
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             // Join without spaces to form TitleCase
             .join('');
-    }
-
-    // function toTitleCase(str) {
-    //     return str.charAt(0).toLowerCase() + str.slice(1);
-    // }    
+    }   
 
     function resolvePath(componentEl, fullKey) {
 
@@ -949,6 +944,36 @@
 
     function applyVisibile(el, key, type, state, update, subscribe) {
         if (type === 'visible') {
+
+            const parts = key.split('.');
+
+            if (parts.length > 1) {
+
+                let result = resolvePath(el, key);
+                
+                let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
+                
+                try {
+
+                    const applyVisibility = (val) => {
+                        el.style.display = val ? '' : 'none';
+                    };
+
+                    // Initial
+                    applyVisibility(targetState[finalKey]);
+
+                    // React on change
+                    targetSubscribe(finalKey, val => {
+                        applyVisibility(val);
+                    });                   
+
+                } catch (e) {
+                    console.warn('Invalid visible binding:', key);
+                }
+
+                return;
+            }
+
             const applyVisibility = (val) => {
                 el.style.display = val ? '' : 'none';
             };
@@ -1090,7 +1115,6 @@
 
                         let attrName = bindingNames[index];
 
-                        console.log(attrName)
                         // Initial set
                         el.setAttribute(attrName, targetState[finalKey] ?? '');
 

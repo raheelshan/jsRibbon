@@ -21,7 +21,7 @@
     jsRibbon.component('Layout', (state, rootElement) => {
 
         const handleClick = (event) => {
-            let {firstName} = state
+            let { firstName } = state
             console.log('Component State:', state.firstName);
         };
 
@@ -62,7 +62,7 @@
 
         </div> -->
 
-        Event in Context
+        <!-- Event in Context
         <div data-bind="component:Layout, context : layout">
             <input type="text" name="name" value="Raheel" data-bind="value: firstName">
             <span data-bind="text:firstName"></span>
@@ -74,7 +74,7 @@
                 </div>
             </div>
 
-        </div>        
+        </div>         -->
 
         <!-- Attributes in Context
         <div id="container">
@@ -120,6 +120,24 @@
             </div>              
 
         </div>         -->
+
+        Visibility in Context
+
+        <div data-bind="component:Visibility , context : visibility">
+            <label>
+                <input type="checkbox" data-bind="value:isVisible" checked /> Visible Mode
+            </label>
+            <div data-bind="visible: isVisible">
+                <input name="firstName" type="text" data-bind="value: firstName, update:blur" value="Raheel" />
+            </div>
+
+            <div data-bind="component:Container">
+                <div data-bind="visible: visibility.isVisible">
+                    H there
+                </div>
+            </div>
+        </div>
+
 
 
     </div>
