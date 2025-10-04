@@ -761,6 +761,7 @@
         // ✅ SELECT element
         if (type === 'value' && el instanceof HTMLSelectElement) {
 
+            // not working for context
             const parts = key.split('.');
 
             if (parts.length > 1) {
@@ -810,7 +811,7 @@
         }
     }
 
-    function applyFocused(el, key, type, state, update, subscribe) {
+    function applyFocused(el, key, type, state, subscribe) {
         if (type === 'focused') {
 
             const parts = key.split('.');
@@ -842,7 +843,7 @@
         }
     }
 
-    function applyVisibile(el, key, type, state, update, subscribe) {
+    function applyVisibile(el, key, type, state, subscribe) {
         if (type === 'visible') {
 
             const parts = key.split('.');
@@ -867,7 +868,7 @@
         }
     }
 
-    function applyReadOnly(el, key, type, state, update, subscribe) {
+    function applyReadOnly(el, key, type, state, subscribe) {
         if (type === 'readonly') {
 
             const parts = key.split('.');
@@ -884,7 +885,7 @@
         }
     }
 
-    function applyDisabled(el, key, type, state, update, subscribe) {
+    function applyDisabled(el, key, type, state, subscribe) {
         if (type === 'disabled') {
 
             const parts = key.split('.');
@@ -901,7 +902,7 @@
         }
     }
 
-    function applyCheckboxToggle(el, key, type, state, update, subscribe, componentEl) {
+    function applyCheckboxToggle(el, key, type, state, subscribe, componentEl) {
         // ✅ Select-All checkbox logic
         if (type === 'toggle' && el instanceof HTMLInputElement && el.type === 'checkbox') {
 
@@ -925,7 +926,7 @@
         }
     }
 
-    function applyHtml(el, key, type, state, update, subscribe) {
+    function applyHtml(el, key, type, state, subscribe) {
         if (type === 'html') {
 
             const parts = key.split('.');
@@ -946,7 +947,7 @@
         }
     }
 
-    function applyClass(el, key, type, state, update, subscribe) {
+    function applyClass(el, key, type, state, subscribe) {
         if (type === 'class') {
 
             const parts = key.split('.');
@@ -1004,7 +1005,7 @@
         }
     }
 
-    function applyAttribute(el, key, type, state, update, subscribe) {
+    function applyAttribute(el, key, type, state, subscribe) {
         if (type === 'attr') {
 
             const parts = key.split('.');
@@ -1183,7 +1184,7 @@
         bindables.forEach(el => {
             const bindings = parseBindings(el.getAttribute('data-bind'));
 
-            textBinding(bindings, bindingsMap, el, initialState); //done
+            textBinding(bindings, bindingsMap, el, initialState);
             valueBinding(bindings, bindingsMap, el, keyUsageCount, initialState);
             toggleBinding(bindings, bindingsMap, el, initialState);
             visibleBinding(bindings, bindingsMap, el, initialState);
@@ -1191,9 +1192,7 @@
             classBinding(bindings, initialState, el, bindingsMap);
             attributeBinding(bindings, initialState, el, bindingsMap);
             submitBinding(bindings, bindingsMap, el);
-
-            eventBinding(bindings, bindingsMap, el); // done
-
+            eventBinding(bindings, bindingsMap, el); 
             foreachBinding(bindings, el, initialState, ctx);
         });
 
@@ -1211,14 +1210,14 @@
                 applyValue(el, key, type, state, updateEvent, subscribe, keyUsageCount)
                 applySelect(el, key, type, state, updateEvent, subscribe)
                 applyTextArea(el, key, type, state, updateEvent, subscribe);
-                applyFocused(el, key, type, state, updateEvent, subscribe)
-                applyVisibile(el, key, type, state, updateEvent, subscribe)
-                applyReadOnly(el, key, type, state, updateEvent, subscribe)
-                applyDisabled(el, key, type, state, updateEvent, subscribe)
-                applyCheckboxToggle(el, key, type, state, updateEvent, subscribe, componentEl)
-                applyHtml(el, key, type, state, updateEvent, subscribe)
-                applyClass(el, key, type, state, updateEvent, subscribe)
-                applyAttribute(el, key, type, state, updateEvent, subscribe)
+                applyFocused(el, key, type, state, subscribe)
+                applyVisibile(el, key, type, state, subscribe)
+                applyReadOnly(el, key, type, state, subscribe)
+                applyDisabled(el, key, type, state, subscribe)
+                applyCheckboxToggle(el, key, type, state, subscribe, componentEl)
+                applyHtml(el, key, type, state, subscribe)
+                applyClass(el, key, type, state, subscribe)
+                applyAttribute(el, key, type, state, subscribe)
                 applySubmit(el, key, type, bindings, componentEl)
                 applyEvent(el, key, type, state, componentEl) // done
                 applyForeach(el, key, type, state, updateEvent, subscribe)
