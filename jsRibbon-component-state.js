@@ -667,6 +667,7 @@
         if (!supportedEvents.includes(type)) return;
 
         const handlerName = key;
+
         const fn = resolveMethod(componentEl, handlerName);
 
         if (typeof fn === 'function') {

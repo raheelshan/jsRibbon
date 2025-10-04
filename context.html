@@ -18,10 +18,11 @@
     jsRibbon.autoRegister = true;
     console.log(jsRibbon.getComponents());
 
-    jsRibbon.component('Layout', ($state, rootElement) => {
+    jsRibbon.component('Layout', (state, rootElement) => {
 
         const handleClick = (event) => {
-            console.log('Component State:', $state, rootElement, event.target);
+            let {firstName} = state
+            console.log('Component State:', state.firstName);
         };
 
         return { handleClick };
@@ -30,7 +31,7 @@
 
 <body>
     <div id="container">
-        Text and Event in Context
+        <!-- Composition
         <div data-bind="component:Layout, context : layout">
             <input type="text" name="name" value="Raheel" data-bind="value: firstName">
             <span data-bind="text:firstName"></span>
@@ -59,9 +60,23 @@
                 <span data-bind="text:title">Footer</span>
             </div>
 
-        </div>
+        </div> -->
 
-        Attributes in Context
+        Event in Context
+        <div data-bind="component:Layout, context : layout">
+            <input type="text" name="name" value="Raheel" data-bind="value: firstName">
+            <span data-bind="text:firstName"></span>
+            <button data-bind="click:handleClick">Click Me</button>
+
+            <div data-bind="component:Content, context : content">
+                <div data-bind="component:Container">
+                    <button data-bind="click : layout.handleClick, attr: [ layout.firstName => title]">Click Me</button>
+                </div>
+            </div>
+
+        </div>        
+
+        <!-- Attributes in Context
         <div id="container">
             <div data-bind="component:Attribute, context : attribute">
                 <div>
@@ -82,9 +97,9 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
 
-        Class in Context
+        <!-- Class in Context
         <div id="container">
 
             <div data-bind="component:ClassChecker, context : classChecker">
@@ -104,7 +119,7 @@
         
             </div>              
 
-        </div>        
+        </div>         -->
 
 
     </div>
