@@ -137,7 +137,7 @@
             </div>
         </div> -->
 
-        Readonly and Disabled in Context
+        <!-- Readonly and Disabled in Context
         <div data-bind="component:Lock , context : lock">
             <label>
                 <input type="checkbox" data-bind="value:isLocked"  /> Lock Mode
@@ -150,8 +150,18 @@
                         value="Raheel" /></p>
 
             </div>
-        </div>
+        </div> -->
 
+        Value in Context
+        <div data-bind="component:TextComponent, context : textComponent">
+            <input type="text" name="name" value="Raheel Shan" data-bind="value: name">
+            <span data-bind="text:name">Saleem</span>
+
+            <div data-bind="component:ChlidClass">
+                <input type="text" name="name" value="Raheel Shan" data-bind="value: textComponent.name">
+                <span data-bind="text:textComponent.name">Saleem</span>
+            </div>
+        </div>
 
 
     </div>

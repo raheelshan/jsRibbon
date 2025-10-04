@@ -293,6 +293,19 @@
 
         if (type === 'value' && el instanceof HTMLInputElement) {
 
+            const parts = key.split('.');
+
+            if (parts.length > 1) {
+
+                let result = resolvePath(el, key);
+
+                let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
+
+                state = targetState;
+                key = finalKey;
+                subscribe = targetSubscribe
+            }
+
             const inputType = el.type;
             const fallbackEvent = inputType === 'checkbox' || inputType === 'radio' ? 'change' : 'input';
             const eventToUse = updateEvent || fallbackEvent;
