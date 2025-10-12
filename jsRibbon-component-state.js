@@ -851,8 +851,38 @@
         }
 
         // 3) build template and initial parsed array from DOM if parent has no array yet
-        const children = Array.from(el.children || []);
-        const template = children[0] ? children[0].cloneNode(true) : document.createElement('div');
+        let children = Array.from(el.children || []);
+
+        let template = null;
+
+        if (children && children.length > 0) {
+            let tag = children[0];
+
+            if (tag.tagName === 'TEMPLATE') {
+                // The .content is a DocumentFragment holding the real nodes
+                const fragment = tag.content.cloneNode(true);
+                // If you specifically need the first element (like <tr>)
+                const node = fragment.firstElementChild;
+
+                if (!node) {
+                    throw new Error(`Empty <template> in foreach binding "${finalKey}"`);
+                }
+
+                template = node; // assign the actual usable element
+                template.setAttribute('data-template-origin', finalKey);
+
+                // ❌ remove <template> from the DOM so it's not rendered
+                tag.remove();
+            } else {
+                // If not a template, just clone the existing node
+                template = tag.cloneNode(true);
+            }
+        } else {
+            throw new Error(`Markup not found for foreach binding "${finalKey}"`);
+        }
+
+        // Refresh children, excluding <template>
+        children = Array.from(el.children || []).filter(c => c.tagName !== 'TEMPLATE');
 
         // If parent state already has an array, use it; otherwise parse DOM and set it
         let arr = Array.isArray(targetState[finalKey]) ? targetState[finalKey] : null;
@@ -1429,7 +1459,8 @@
             const templateNodes = Array.from(parent.children);
 
             // Just tag items with $index and $item (optional for future use)
-            // console.log(items);
+            console.log(items, parent, templateNodes);
+            return;
 
             parent.innerHTML = ''; // clear
 
@@ -1520,7 +1551,7 @@
                 applyAttribute(el, key, type, state, subscribe)
                 applySubmit(el, key, type, bindings, componentEl)
                 applyEvent(el, key, type, state, componentEl) // done
-                applyForeach(el, key, type, state, updateEvent, subscribe)
+                // applyForeach(el, key, type, state, updateEvent, subscribe)
             });
         });
     }
