@@ -20,12 +20,12 @@
 
     jsRibbon.component('Layout', (state, rootElement) => {
 
-        // const handleClick = (event) => {
-        //     let { firstName } = state
-        //     console.log('Component State:', state.firstName);
-        // };
+        const handleClick = (event) => {
+            let { firstName } = state
+            console.log('Component State:', state.firstName);
+        };
 
-        // return { handleClick };
+        return { handleClick };
     });
 
     jsRibbon.component('Users', ($state) => {
@@ -73,19 +73,20 @@
 
         </div> -->
 
-        <!-- Event in Context
-        <div data-bind="component:Layout, context : layout">
-            <input type="text" name="name" value="Raheel" data-bind="value: firstName">
-            <span data-bind="text:firstName"></span>
-            <button data-bind="click:handleClick">Click Me</button>
-
-            <div data-bind="component:Content, context : content">
-                <div data-bind="component:Container">
-                    <button data-bind="click : layout.handleClick, attr: [ layout.firstName => title]">Click Me</button>
+        <!-- 
+            Event in Context
+            <div data-bind="component:Layout, context : layout">
+                <input type="text" name="name" value="Raheel" data-bind="value: firstName">
+                <span data-bind="text:firstName"></span>
+                <button data-bind="click:handleClick">Click Me</button>
+    
+                <div data-bind="component:Content, context : content">
+                    <div data-bind="component:Container">
+                        <button data-bind="click : layout.handleClick, attr: [ layout.firstName => title]">Click Me</button>
+                    </div>
                 </div>
-            </div>
-
-        </div>         
+    
+            </div>         
         -->
 
         <!-- Attributes in Context
@@ -225,38 +226,48 @@
             </div>
         </div>  -->
 
-        <!-- Foreach in Context
-        <div data-bind="component:Layout, context : layout">
-            <table>
-                <tr>
-                    <td>Name</td>
-                    <td>Age</td>
-                    <td>Action</td>
-                </tr>
-                <tbody data-bind="foreach: [ data: users, as: user ] ">
+        <!-- 
+            Foreach in Context
+            <div data-bind="component:Layout, context : layout">
+                <table>
                     <tr>
-                        <td data-bind="text:firstName">Raheel Shan</td>
-                        <td data-bind="text:age">40</td>
+                        <td>Name</td>
+                        <td>Age</td>
+                        <td>Action</td>
                     </tr>
-
-                    <tr>
-                        <td data-bind="text:firstName">Saleem Ahmad</td>
-                        <td data-bind="text:age">21</td>
-                    </tr>
-                    <tr>
-                        <td data-bind="text:firstName">Shoaib Mansoor</td>
-                        <td data-bind="text:age">27</td>
-                    </tr>
-
-                </tbody>
-            </table>
-
-            <div data-bind="component:Users">
-                <ul data-bind="foreach: [ data: layout.users, as: row ] ">
-                    <li data-bind="text: firstName"></li>
-                </ul>
+                    <tbody data-bind="foreach: [ data: users, as: user ] ">
+    
+                        <template>
+                            <tr>
+                                <td data-bind="text:firstName"></td>
+                                <td data-bind="text:age"></td>
+                            </tr>
+                        </template>
+    
+                        <tr>
+                            <td data-bind="text:firstName">Raheel Shan</td>
+                            <td data-bind="text:age">40</td>
+                        </tr>
+    
+                        <tr>
+                            <td data-bind="text:firstName">Saleem Ahmad</td>
+                            <td data-bind="text:age">21</td>
+                        </tr>
+                        <tr>
+                            <td data-bind="text:firstName">Shoaib Mansoor</td>
+                            <td data-bind="text:age">27</td>
+                        </tr>
+    
+                    </tbody>
+                </table>
+    
+                <div data-bind="component:Users">
+                    <ul data-bind="foreach: [ data: layout.users, as: row ] ">
+                        <li data-bind="text: firstName"></li>
+                    </ul>
+                </div>
             </div>
-        </div> -->
+        -->
 
     </div>
 

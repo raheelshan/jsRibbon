@@ -613,7 +613,6 @@
 
             if (bindings[eventType]) {
                 const handlerName = resolveBindingKey(bindings[eventType]);
-
                 if (!handlerName) return;
 
                 bindingsMap.push({
@@ -626,59 +625,6 @@
         });
     }
 
-    // function applyEvent(el, key, type, state, componentEl) {
-
-    //     const supportedEvents = [
-    //         'click', 'change', 'input', 'blur', 'focus',
-    //         'keydown', 'keyup', 'keypress',
-    //         'mouseenter', 'mouseleave', 'mouseover', 'mouseout',
-    //         'dblclick', 'contextmenu',
-    //         'mousedown', 'mouseup'
-    //     ];
-
-    //     if (!supportedEvents.includes(type)) return;
-
-    //     const foreachItem = el.closest('[data-foreach-owner]');
-
-    //     console.log(foreachItem, el, key)
-
-    //     if (foreachItem) {
-    //         return; // foreach uses delegation
-    //     }
-
-    //     const handlerName = key;
-
-    //     const fn = resolveMethod(componentEl, handlerName);
-
-    //     if (typeof fn === 'function') {
-    //         el.addEventListener(type, fn);
-    //         return;
-    //     }
-
-    //     // built-in remove shortcut
-    //     if (type === 'click') {
-
-    //         if (key === 'remove') {
-    //             el.addEventListener('click', () => {
-    //                 const parent = el.closest('[data-key][data-foreach-owner]');
-    //                 if (!parent) return;
-
-    //                 const index = parseInt(parent.getAttribute('data-key'), 10);
-    //                 const stateKey = parent.getAttribute('data-foreach-owner');
-    //                 if (!Array.isArray(state[stateKey])) return;
-
-    //                 state[stateKey].splice(index, 1); // Proxy re-renders
-    //             });
-
-    //             return;
-    //         }
-    //     }
-
-    //     // fallback: delay until ctx is ready
-    //     if (!componentEl._pendingEvents) componentEl._pendingEvents = [];
-    //     componentEl._pendingEvents.push({ el, type, handlerName });
-    // }
-
     function applyEvent(el, key, type, state, componentEl) {
 
         const supportedEvents = [
@@ -689,38 +635,15 @@
             'mousedown', 'mouseup'
         ];
 
+        if (el.closest('[data-foreach-owner]')) {
+            return; // foreach uses delegation
+        }
 
         if (!supportedEvents.includes(type)) return;
 
         const handlerName = key;
 
         const fn = resolveMethod(componentEl, handlerName);
-
-        /////////////////
-        // --- 🔹 if inside foreach, attach manually and pass current item context
-        const foreachCtx = resolveForeachContext(el, componentEl);
-        if (foreachCtx) {
-            const { currentItem, dataKey, foreachKey } = foreachCtx;
-
-            el.addEventListener(type, e => {
-                let parsedDataset = parseDataset(el.dataset);
-                delete parsedDataset['bind'];
-
-                // call handler with current item
-                fn?.call(componentEl.$state || componentEl, e, {
-                    ...parsedDataset,
-                    item: currentItem,
-                    index: parseInt(dataKey, 10),
-                    owner: foreachKey
-                }, el);
-            });
-            return;
-        }
-
-        ////////////////
-
-
-
 
         if (typeof fn === 'function') {
             el.addEventListener(type, fn);
@@ -747,72 +670,6 @@
         componentEl._pendingEvents.push({ el, type, handlerName });
     }
 
-    /*
-    function foreachBinding(bindings, el, initialState, ctx) {
-        if (bindings.foreach) {
-            let arrayKey = bindings.foreach;
-            let alias = null;
-
-            if (arrayKey.startsWith('[')) {
-                try {
-                    const configStr = arrayKey.trim().replace(/^\[|\]$/g, '');
-                    const configParts = configStr.split(',').map(p => p.trim());
-                    configParts.forEach(part => {
-                        const [k, v] = part.split(':').map(x => x.trim());
-                        if (k === 'data') arrayKey = v;
-                        if (k === 'as') alias = v;
-                    });
-                } catch (err) {
-                    console.warn('Invalid foreach syntax', arrayKey);
-                }
-            }
-
-            const children = Array.from(el.children);
-            const template = children[0].cloneNode(true);
-
-            const parsedArray = children.map(child => {
-                const obj = {};
-                const deepBindables = child.querySelectorAll('[data-bind]');
-                deepBindables.forEach(bindable => {
-                    const bindInfo = parseBindings(bindable.getAttribute('data-bind'));
-                    for (let [bType, bKey] of Object.entries(bindInfo)) {
-                        if (bType === 'text') {
-                            obj[bKey] = bindable.textContent.trim();
-                        }
-                        if (bType === 'value' && bindable instanceof HTMLInputElement) {
-                            obj[bKey] = bindable.type === 'checkbox'
-                                ? bindable.checked
-                                : bindable.value;
-                        }
-                    }
-                });
-                return obj;
-            });
-
-            // Reactive Proxy
-            initialState[arrayKey] = new Proxy(parsedArray, {
-                get(target, prop, receiver) {
-                    if (['push', 'splice', 'shift', 'unshift', 'pop', 'sort', 'reverse'].includes(prop)) {
-                        return function (...args) {
-                            const result = Array.prototype[prop].apply(target, args);
-                            renderForeach(el, target, alias, template, arrayKey, initialState, ctx);
-                            return result;
-                        };
-                    }
-                    return Reflect.get(target, prop, receiver);
-                },
-                set(target, prop, value, receiver) {
-                    const result = Reflect.set(target, prop, value, receiver);
-                    renderForeach(el, target, alias, template, arrayKey, initialState, ctx);
-                    return result;
-                }
-            });
-
-            // Initial render
-            renderForeach(el, initialState[arrayKey], alias, template, arrayKey, initialState, ctx);
-        }
-    }
-    */
     function foreachBinding(bindings, el, initialState, ctx) {
         if (!bindings.foreach) return;
 
