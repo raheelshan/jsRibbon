@@ -17,19 +17,13 @@ submit ---------------------------- Done
 wrap bindnigs in component -------- Done
 parnet and child component: how to pass state  -------- Done
 
-if -------------------------------- Discard
-expose ---------------------------- Discard
-with ------------------------------ Discard
+context ------------------------------ Done
 
-Observable array ----------------------------- Pending
-foreach Observable array--------------------------- Pending
+foreach array binding--------------------------- Pending
 
-load state from component if injected by HTML or on load - Pending
-new component mutation replaced by innerHTML ------------ Pending
-----------------
+load state from component if injected by HTML or on load - Done
+new component mutation replaced by innerHTML ------------ Check
 
-template:true
-repeated:true
 
 4 Features 
 
