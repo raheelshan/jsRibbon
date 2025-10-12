@@ -216,6 +216,7 @@
                 return;
             }
 
+            /*
             if (inputType === 'radio') {
                 const radioValue = el.value;
 
@@ -241,6 +242,39 @@
 
                 return;
             }
+            */
+            if (inputType === 'radio') {
+                const radioValue = el.value;
+
+                // 👇 Automatically scope name within the component
+                if (el.closest('[data-bind*="component:"]')) {
+                    const compEl = el.closest('[data-bind*="component:"]');
+                    const originalName = el.getAttribute('name') || key;
+                    const scopedName = `${originalName}_${compEl.$id}`;
+                    el.setAttribute('name', scopedName);
+                }
+
+                // --- 1. Initialize from checked attribute ---
+                if (!(key in state) && el.checked) {
+                    state[key] = radioValue;
+                }
+
+                // --- 2. Reflect state into DOM ---
+                el.checked = state[key] === radioValue;
+
+                // --- 3. When user changes ---
+                el.addEventListener(eventToUse, () => {
+                    if (el.checked) state[key] = radioValue;
+                });
+
+                // --- 4. Reactively sync ---
+                subscribe(key, val => {
+                    el.checked = val === radioValue;
+                });
+
+                return;
+            }
+
 
             // For text/number/etc
             const min = el.hasAttribute('min') ? parseFloat(el.getAttribute('min')) : null;
@@ -312,6 +346,20 @@
 
             throw new Error(`Context "${parentContext}" not found for binding "${fullKey}"`);
         }
+    }
+
+    function resolveForeachContext(el, componentEl) {
+        const parent = el.closest('[data-key][data-foreach-owner]');
+        if (!parent) return null;
+
+        const foreachKey = parent.getAttribute('data-foreach-owner');
+        const dataKey = parent.getAttribute('data-key');
+
+        const state = componentEl.$state?.[foreachKey];
+        if (!Array.isArray(state)) return null;
+
+        const currentItem = state[dataKey];
+        return { foreachKey, dataKey, currentItem, state };
     }
 
     function resolveMethod(componentEl, fullKey) {
@@ -445,6 +493,7 @@
         return el.closest('[data-bind*="foreach:"]') || el.closest('[data-bind*="with:"]');
     }
 
+    /*
     function renderForeach(container, arr, alias, template, arrayKey, state) {
         container.innerHTML = '';
 
@@ -481,7 +530,7 @@
                     }
 
                     if (supportedEvents.includes(bType)) {
-                        if (bKey === 'remove' || bKey === 'removeItem') {
+                        if (bKey === 'remove') {
                             el.addEventListener(bType, () => {
                                 state[arrayKey].splice(index, 1);
                             });
@@ -495,6 +544,59 @@
             });
 
             container.appendChild(clone);
+        });
+    }
+    */
+    function renderForeach(el, items, alias, template, arrayKey, state, ctx) {
+        el.innerHTML = ''; // clear
+
+        items.forEach((item, index) => {
+            const clone = template.cloneNode(true);
+
+            // mark ownership for remove/etc.
+            // after creating clone and before appending it:
+            clone.setAttribute('data-key', index);
+            clone.setAttribute('data-foreach-owner', arrayKey);
+            if (alias) clone.setAttribute('data-foreach-alias', alias);
+
+            // attach runtime references (not attributes) for fast lookup
+            clone._foreach_ownerArray = items;            // the array instance (items param)
+            clone._foreach_ownerArrayName = arrayKey;     // e.g. "users"
+            clone._foreach_ownerState = state;            // authoritative state object that owns the array
+            clone._foreach_ownerSubscribe = (typeof state?.$subscribe === 'function')
+                ? state.$subscribe
+                : (typeof state?.subscribe === 'function' ? state.subscribe : null);
+
+            // bind all inner elements
+            const bindables = clone.querySelectorAll('[data-bind]');
+            bindables.forEach(bindEl => {
+                const bindInfo = parseBindings(bindEl.getAttribute('data-bind'));
+
+                for (let [bType, bKey] of Object.entries(bindInfo)) {
+
+                    // ✅ handle alias — if alias exists, allow row.firstName or firstName
+                    let value;
+                    if (alias && bKey.startsWith(alias + '.')) {
+                        // e.g. bKey = "row.firstName"
+                        const keyPart = bKey.split('.').slice(1).join('.');
+                        value = item[keyPart];
+                    } else {
+                        // fallback: direct key like "firstName"
+                        value = item[bKey];
+                    }
+
+                    // apply value
+                    if (bType === 'text') {
+                        bindEl.textContent = value ?? '';
+                    }
+                    if (bType === 'value' && bindEl instanceof HTMLInputElement) {
+                        bindEl.value = value ?? '';
+                        if (bindEl.type === 'checkbox') bindEl.checked = !!value;
+                    }
+                }
+            });
+
+            el.appendChild(clone);
         });
     }
 
@@ -511,6 +613,7 @@
 
             if (bindings[eventType]) {
                 const handlerName = resolveBindingKey(bindings[eventType]);
+
                 if (!handlerName) return;
 
                 bindingsMap.push({
@@ -523,6 +626,59 @@
         });
     }
 
+    // function applyEvent(el, key, type, state, componentEl) {
+
+    //     const supportedEvents = [
+    //         'click', 'change', 'input', 'blur', 'focus',
+    //         'keydown', 'keyup', 'keypress',
+    //         'mouseenter', 'mouseleave', 'mouseover', 'mouseout',
+    //         'dblclick', 'contextmenu',
+    //         'mousedown', 'mouseup'
+    //     ];
+
+    //     if (!supportedEvents.includes(type)) return;
+
+    //     const foreachItem = el.closest('[data-foreach-owner]');
+
+    //     console.log(foreachItem, el, key)
+
+    //     if (foreachItem) {
+    //         return; // foreach uses delegation
+    //     }
+
+    //     const handlerName = key;
+
+    //     const fn = resolveMethod(componentEl, handlerName);
+
+    //     if (typeof fn === 'function') {
+    //         el.addEventListener(type, fn);
+    //         return;
+    //     }
+
+    //     // built-in remove shortcut
+    //     if (type === 'click') {
+
+    //         if (key === 'remove') {
+    //             el.addEventListener('click', () => {
+    //                 const parent = el.closest('[data-key][data-foreach-owner]');
+    //                 if (!parent) return;
+
+    //                 const index = parseInt(parent.getAttribute('data-key'), 10);
+    //                 const stateKey = parent.getAttribute('data-foreach-owner');
+    //                 if (!Array.isArray(state[stateKey])) return;
+
+    //                 state[stateKey].splice(index, 1); // Proxy re-renders
+    //             });
+
+    //             return;
+    //         }
+    //     }
+
+    //     // fallback: delay until ctx is ready
+    //     if (!componentEl._pendingEvents) componentEl._pendingEvents = [];
+    //     componentEl._pendingEvents.push({ el, type, handlerName });
+    // }
+
     function applyEvent(el, key, type, state, componentEl) {
 
         const supportedEvents = [
@@ -533,15 +689,38 @@
             'mousedown', 'mouseup'
         ];
 
-        if (el.closest('[data-foreach-owner]')) {
-            return; // foreach uses delegation
-        }
 
         if (!supportedEvents.includes(type)) return;
 
         const handlerName = key;
 
         const fn = resolveMethod(componentEl, handlerName);
+
+        /////////////////
+        // --- 🔹 if inside foreach, attach manually and pass current item context
+        const foreachCtx = resolveForeachContext(el, componentEl);
+        if (foreachCtx) {
+            const { currentItem, dataKey, foreachKey } = foreachCtx;
+
+            el.addEventListener(type, e => {
+                let parsedDataset = parseDataset(el.dataset);
+                delete parsedDataset['bind'];
+
+                // call handler with current item
+                fn?.call(componentEl.$state || componentEl, e, {
+                    ...parsedDataset,
+                    item: currentItem,
+                    index: parseInt(dataKey, 10),
+                    owner: foreachKey
+                }, el);
+            });
+            return;
+        }
+
+        ////////////////
+
+
+
 
         if (typeof fn === 'function') {
             el.addEventListener(type, fn);
@@ -568,6 +747,7 @@
         componentEl._pendingEvents.push({ el, type, handlerName });
     }
 
+    /*
     function foreachBinding(bindings, el, initialState, ctx) {
         if (bindings.foreach) {
             let arrayKey = bindings.foreach;
@@ -632,6 +812,102 @@
             renderForeach(el, initialState[arrayKey], alias, template, arrayKey, initialState, ctx);
         }
     }
+    */
+    function foreachBinding(bindings, el, initialState, ctx) {
+        if (!bindings.foreach) return;
+
+        // 1) parse config [ data: foo, as: alias ]
+        let arrayKey = bindings.foreach;
+        let alias = null;
+
+        if (arrayKey.startsWith('[')) {
+            try {
+                const configStr = arrayKey.trim().replace(/^\[|\]$/g, '');
+                const configParts = configStr.split(',').map(p => p.trim());
+                configParts.forEach(part => {
+                    const [k, v] = part.split(':').map(x => x.trim());
+                    if (k === 'data') arrayKey = v;
+                    if (k === 'as') alias = v;
+                });
+            } catch (err) {
+                console.warn('Invalid foreach syntax', arrayKey);
+                return;
+            }
+        }
+
+        // 2) resolve parent context if dotted (e.g. "layout.users")
+        let targetState = initialState;
+        let finalKey = arrayKey;
+
+        if (arrayKey.includes('.')) {
+            // resolvePath returns { state, subscribe, key } for "layout.users"
+            const resolved = resolvePath(el, arrayKey);
+            if (!resolved) {
+                console.warn('Could not resolve foreach data:', arrayKey);
+                return;
+            }
+            targetState = resolved.state;
+            finalKey = resolved.key; // e.g. "users"
+        }
+
+        // 3) build template and initial parsed array from DOM if parent has no array yet
+        const children = Array.from(el.children || []);
+        const template = children[0] ? children[0].cloneNode(true) : document.createElement('div');
+
+        // If parent state already has an array, use it; otherwise parse DOM and set it
+        let arr = Array.isArray(targetState[finalKey]) ? targetState[finalKey] : null;
+
+        if (!arr) {
+            // parse existing DOM children into plain array
+            const parsedArray = children.map(child => {
+                const obj = {};
+                const deepBindables = child.querySelectorAll('[data-bind]');
+                deepBindables.forEach(bindable => {
+                    const bindInfo = parseBindings(bindable.getAttribute('data-bind'));
+                    for (let [bType, bKey] of Object.entries(bindInfo)) {
+                        if (bType === 'text') {
+                            obj[bKey] = bindable.textContent.trim();
+                        }
+                        if (bType === 'value' && bindable instanceof HTMLInputElement) {
+                            obj[bKey] = bindable.type === 'checkbox'
+                                ? bindable.checked
+                                : bindable.value;
+                        }
+                    }
+                });
+                return obj;
+            });
+
+            arr = parsedArray;
+        }
+
+        // 4) wrap the array with a Proxy that re-renders after mutating operations
+        const proxied = new Proxy(arr, {
+            get(target, prop, receiver) {
+                if (['push', 'splice', 'shift', 'unshift', 'pop', 'sort', 'reverse'].includes(prop)) {
+                    return function (...args) {
+                        const result = Array.prototype[prop].apply(target, args);
+                        // on mutation, re-render using finalKey and the authoritative state (targetState)
+                        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
+                        return result;
+                    };
+                }
+                return Reflect.get(target, prop, receiver);
+            },
+            set(target, prop, value, receiver) {
+                const result = Reflect.set(target, prop, value, receiver);
+                renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
+                return result;
+            }
+        });
+
+        // 5) store proxied array back into the authoritative state (parent or local)
+        targetState[finalKey] = proxied;
+
+        // 6) initial render
+        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
+    }
+
 
     function submitBinding(bindings, bindingsMap, el) {
         if (bindings.submit) {
@@ -757,6 +1033,7 @@
         }
     }
 
+    /*
     function applySelect(el, key, type, state, update, subscribe) {
         // ✅ SELECT element
         if (type === 'value' && el instanceof HTMLSelectElement) {
@@ -778,6 +1055,49 @@
 
             subscribe(key, val => {
                 if (el.value !== val) el.value = val;
+            });
+
+            return;
+        }
+    }
+    */
+    function applySelect(el, key, type, state, update, subscribe) {
+        if (type === 'value' && el instanceof HTMLSelectElement) {
+            const parts = key.split('.');
+            if (parts.length > 1) {
+                ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
+            }
+
+            const eventToUse = update || 'change';
+
+            // Helper to set selected options from value(s)
+            const setSelected = (val) => {
+                if (el.multiple) {
+                    const values = Array.isArray(val) ? val.map(String) : [];
+                    for (const option of el.options) {
+                        option.selected = values.includes(option.value);
+                    }
+                } else {
+                    el.value = val ?? '';
+                }
+            };
+
+            // Initial set
+            setSelected(state[key]);
+
+            // On change → update state
+            el.addEventListener(eventToUse, () => {
+                if (el.multiple) {
+                    const selected = Array.from(el.selectedOptions, o => o.value);
+                    state[key] = selected;
+                } else {
+                    state[key] = el.value;
+                }
+            });
+
+            // Subscribe to reactive updates
+            subscribe(key, val => {
+                setSelected(val);
             });
 
             return;
@@ -1102,8 +1422,9 @@
     }
 
     function applyForeach(el, key, type, state, update, subscribe) {
+
         if (type === 'foreach') {
-            const items = state[data.key];
+            const items = state[key];
             const parent = el;
             const templateNodes = Array.from(parent.children);
 
@@ -1130,27 +1451,6 @@
                             }
                         }
                     });
-
-                    /*
-                    Object.entries(bindInfo).forEach(([bType, bKey]) => {
-                        let finalKey = bKey;
-
-                        // Support alias: "alias.someProp" → item.someProp
-                        if (alias && finalKey.startsWith(alias + '.')) {
-                            finalKey = finalKey.replace(alias + '.', '');
-                        }
-
-                        if (bType === 'text') {
-                            bindEl.textContent = item[finalKey];
-                        }
-                        if (bType === 'value' && bindEl instanceof HTMLInputElement) {
-                            bindEl.value = item[finalKey];
-                            if (bindEl.type === 'checkbox') {
-                                bindEl.checked = !!item[finalKey];
-                            }
-                        }
-                    });
-                    */
 
                 });
 
@@ -1192,7 +1492,7 @@
             classBinding(bindings, initialState, el, bindingsMap);
             attributeBinding(bindings, initialState, el, bindingsMap);
             submitBinding(bindings, bindingsMap, el);
-            eventBinding(bindings, bindingsMap, el); 
+            eventBinding(bindings, bindingsMap, el);
             foreachBinding(bindings, el, initialState, ctx);
         });
 

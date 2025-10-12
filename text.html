@@ -17,7 +17,7 @@
                 <span data-bind="text:name"></span>
             </div>   
 
-            <hr />
+            <!-- <hr />
             initial text defined 
             <div data-bind="component:TextComponent">
                 <span data-bind="text:name">Raheel Shan</span>
@@ -39,7 +39,7 @@
             <div data-bind="component:TextComponent">
                 <input type="text" name="name" value="Raheel Shan" size="10" data-bind="value: name, update:change">
                 <span data-bind="text:name"></span>
-            </div>            
+            </div>             -->
             <hr />  
              input number
             <div data-bind="component:AgeSelector">
@@ -58,7 +58,7 @@
             
             <hr>
             Select
-            <div data-bind="component:CityPicker">
+            <div data-bind="component:CityPicker1">
                 <select name="city" id="" data-bind="value:city">
                     <option value="">Select</option>
                     <option value="Karachi">Karachi</option>
@@ -70,7 +70,7 @@
             <hr>
             Multi Select
             <div data-bind="component:CityPicker">
-                <select name="city" id="" data-bind="value:city" multiple name="cities[]" >
+                <select id="" data-bind="value:city" multiple name="cities[]" >
                     <option value="">Select</option>
                     <option value="Karachi">Karachi</option>
                     <option value="Lahore">Lahore</option>

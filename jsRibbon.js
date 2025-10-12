@@ -3,6 +3,16 @@
     let initializedElements = new WeakSet(); // Track registered elements
     let componentKeys = new Set();           // Prevent duplicate by key
     let autoRegister = true;
+    let hardFail = false; // ⬅️ hard fail stops everything
+
+    const componentMarkupRegistry = new Map();
+
+    function normalizeMarkup(html) {
+        return html
+            .replace(/\s+/g, ' ')
+            .replace(/>\s+</g, '><')
+            .trim();
+    }
 
     // ---------- jsRibbon binding parser (supports "as" for alias, "=>" for mapping) ----------
     function splitTopLevel(s) {
@@ -133,6 +143,24 @@
         return out;
     }
 
+    function parseDataset(dataset) {
+        const parsed = {};
+
+        for (const [key, value] of Object.entries(dataset)) {
+            if (value === "true") parsed[key] = true;
+            else if (value === "false") parsed[key] = false;
+            else if (value === "null") parsed[key] = null;
+            else if (!isNaN(value) && value.trim() !== "") parsed[key] = +value;
+            else if (/^{.*}$/.test(value) || /^\[.*\]$/.test(value)) {
+                try { parsed[key] = JSON.parse(value); }
+                catch { parsed[key] = value; } // fallback if malformed
+            }
+            else parsed[key] = value;
+        }
+
+        return parsed;
+    }
+
     function getComponentNameFrom(el) {
         const dataBind = el.getAttribute?.('data-bind')?.trim();
         const parsed = parseDataBind(dataBind || '');
@@ -180,8 +208,34 @@
         if (!componentInfo) return;
 
         const { type, name } = componentInfo;
-        
-        if(type != 'ident') return;
+
+        // 🧠 Check for markup consistency among same-named components
+        if (type === 'ident' && name) {
+            const currentMarkup = normalizeMarkup(el.innerHTML);
+            if (componentMarkupRegistry.has(name)) {
+                const storedMarkup = componentMarkupRegistry.get(name);
+                if (storedMarkup !== currentMarkup) {
+                    const message =
+                        `❌ JS Ribbon Error: Component "${name}" detected with multiple markup structures.\n` +
+                        `→ Ensure backend uses consistent HTML for this component.\n` +
+                        `⚠️ Offending element:`;
+
+                    if (window.jsRibbon.hardFail) {
+                        // 🚨 Hard fail: stop everything
+                        throw new Error(message, { cause: el });
+                        return; // ⬅️ Skip binding for this component
+                    } else {
+                        // ⚠️ Soft fail: warn and skip only this component
+                        console.warn(message, el);
+                    }
+                }
+            } else {
+                componentMarkupRegistry.set(name, currentMarkup);
+            }
+        }
+
+
+        if (type != 'ident') return;
 
         // Prevent duplicate by key
         if (key) {
@@ -208,6 +262,11 @@
         componentMap.get(name).push(el);
         initializedElements.add(el);
 
+        // if (!el.$id) {
+        //     el.$id = Math.random().toString(36).slice(2, 10);
+        //     el.setAttribute('data-comp-id', el.$id);
+        // }
+
         // ✅ 1. Initialize state
         // Initialize the state first
         if (window.jsRibbonState?.init) {
@@ -226,9 +285,16 @@
                 if (Array.isArray(el._pendingEvents)) {
                     el._pendingEvents.forEach(({ el: targetEl, type, handlerName }) => {
 
-                        if (!(handlerName === 'remove' || handlerName === 'removeItem')) {
+                        if (!(handlerName === 'remove')) {
                             if (typeof ctx[handlerName] === 'function') {
-                                targetEl.addEventListener(type, ctx[handlerName]);
+                                // targetEl.addEventListener(type, ctx[handlerName]);
+
+                                targetEl.addEventListener(type, e => {
+                                    let parsedDataset = parseDataset(targetEl.dataset);
+                                    const dataset = { ...parsedDataset };
+                                    delete dataset['bind'];
+                                    ctx[handlerName].call(el.$state || ctx, e, dataset, targetEl);
+                                });
                             } else {
                                 console.warn(`⚠️ Event handler "${handlerName}" still not found in "${name}"`, targetEl);
                             }
@@ -341,6 +407,13 @@
             autoRegister = !!value;
             console.log(`🔁 autoRegister is now ${autoRegister}`);
         },
+        // get hardFail() {
+        //     return hardFail;
+        // },
+        // set hardFail(value) {
+        //     hardFail = !!value;
+        //     console.log(`🔁 hardFail is now ${hardFail}`);
+        // },        
         unregister(el) {
             unregisterComponent(el);
         },
@@ -349,6 +422,7 @@
         reset() {
             componentMap.clear();
             componentKeys.clear();
+            componentMarkupRegistry.clear();
             // Recreate the WeakSet
             initializedElements = new WeakSet();
             console.log('♻️ Component system has been reset.');
@@ -358,5 +432,6 @@
         component(name, fn) {
             this.components[name] = fn;
         },
+
     };
 })();

@@ -9,25 +9,24 @@
     <script>
         jsRibbon.autoRegister = true;
 
-        jsRibbon.component('Fruits', ($state) => {
-            const show = () => {
-                // console.log({ ...$state });
-            };
-            return { show };
-        });
+        // jsRibbon.component('Fruits', ($state) => {
+        //     const show = () => {
+        //         console.log(JSON.stringify($state));
+        //     };
+        //     return { show };
+        // });
 
-        jsRibbon.component('Persons', ($state) => {
-            const show = () => {
-                let data = { ...$state }
-                console.log(data.users, data.Date);
-            };
-            return { show };
-        });
+        // jsRibbon.component('Persons', ($state) => {
+        //     const show = () => {
+        //         let data = { ...$state }
+        //         console.log(JSON.parse(JSON.stringify($state)));
+        //     };
+        //     return { show };
+        // });
 
         jsRibbon.component('Users', ($state) => {
             const show = () => {
-                let data = { ...$state }
-                console.log(data.users);
+                console.log(JSON.parse(JSON.stringify($state)));
             };
 
             const add = () => {
@@ -35,11 +34,8 @@
                 $state.Date = '2027-12-20'
             }
 
-            const editItem = (item, index, arrayRef) => {
-                console.log('GEReea')
-                console.log("Editing item at index", index, item);
-                arrayRef[index].name = prompt("Enter new name:", item.name) || item.name;
-
+            const editItem = (event, data) => {
+                console.log(event.target, data);
             }
 
             return { add, show, editItem };
@@ -90,10 +86,11 @@
 
 <body>
     <div id="container">
-        For Each Primitive
+
+        <!-- For Each Primitive
         <hr>
         <div data-bind="component:Fruits">
-            
+
             <ul data-bind="foreach: [ data: fruits, as: item ] ">
                 <li data-key="0">
                     <span data-bind="text:item">Apple</span>
@@ -107,30 +104,30 @@
             </ul>
             <button data-bind="click:show">Click Me</button>
         </div>
-        <br>
-        <!-- 
-        -->
+        <br> -->
 
-        For Each Object
-        <hr>
-        <div data-bind="component:Persons">
-            <ul data-bind="foreach: [ data: users, as: user ] ">
-                <li data-bind="key:0">
-                    <span data-bind="text:firstName">Raheel</span>
-                    <span data-bind="text:lastName">Shan</span>
-                </li>
-                <li data-bind="key:1">
-                    <span data-bind="text:firstName">Saleem</span>
-                    <span data-bind="text:lastName">Ahmad</span>
-                </li>
-                <li data-bind="key:2">
-                    <span data-bind="text:firstName">Shoaib</span>
-                    <span data-bind="text:lastName">Mansoor</span>
-                </li>
-            </ul>
-            <span data-bind="text:Date">2025-12-12</span>
-            <button data-bind="click:show">Click Me</button>
-        </div>
+        <!-- 
+            For Each Object
+            <hr>
+            <div data-bind="component:Persons">
+                <ul data-bind="foreach: [ data: users, as: user ] ">
+                    <li data-bind="key:0">
+                        <span data-bind="text:firstName">Raheel</span>
+                        <span data-bind="text:lastName">Shan</span>
+                    </li>
+                    <li data-bind="key:1">
+                        <span data-bind="text:firstName">Saleem</span>
+                        <span data-bind="text:lastName">Ahmad</span>
+                    </li>
+                    <li data-bind="key:2">
+                        <span data-bind="text:firstName">Shoaib</span>
+                        <span data-bind="text:lastName">Mansoor</span>
+                    </li>
+                </ul>
+                <span data-bind="text:Date">2025-12-12</span>
+                <button data-bind="click:show">Click Me</button>
+            </div>
+        -->
 
         <div id="dynamic">
             <div data-bind="component:Users">
@@ -141,16 +138,27 @@
                         <td>Action</td>
                     </tr>
                     <tbody data-bind="foreach: [ data: users, as: user ] ">
+
+                        <!-- <template>
+                            <tr>
+                                <td data-bind="text:firstName"></td>
+                                <td data-bind="text:age"></td>
+                                <td><button data-bind="click:editItem">Edit</button></td>
+                                <td> <button data-bind="click:remove">Remove</button> </td>
+                            </tr>
+                        </template> -->
+
                         <tr>
                             <td data-bind="text:firstName">Raheel Shan</td>
                             <td data-bind="text:age">40</td>
                             <td><button data-bind="click:editItem">Edit</button></td>
                             <td> <button data-bind="click:remove">Remove</button> </td>
                         </tr>
+                        
                         <tr>
                             <td data-bind="text:firstName">Saleem Ahmad</td>
                             <td data-bind="text:age">21</td>
-                            <td><button data-bind="click:editItem">Edit</button></td>
+                            <td><button data-bind="click:editItem" >Edit</button></td>
                             <td> <button data-bind="click:remove">Remove</button> </td>
                         </tr>
                         <tr>
@@ -159,6 +167,7 @@
                             <td><button data-bind="click:editItem">Edit</button></td>
                             <td> <button data-bind="click:remove">Remove</button> </td>
                         </tr>
+
                     </tbody>
                 </table>
                 <button data-bind="click:add">Add More</button>
@@ -166,6 +175,7 @@
 
             </div>
         </div>
+
 
 
     </div>

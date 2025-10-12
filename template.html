@@ -1,0 +1,24 @@
+<html>
+    <head>
+    
+    </head>
+    <script src="./jsRibbon-enhance-form.js"></script>
+    <script src="./jsRibbon-component-state.js"></script>
+    <script src="./jsRibbon.js"></script>
+
+    <script>
+        jsRibbon.autoRegister = true;
+        jsRibbon.hardFail = true;
+        console.log(jsRibbon.getComponents());
+    </script>
+    <body>
+        <div id="container">
+            Simple
+            
+            <div data-bind="component:SimpleComponent">
+
+            </div>  
+                 
+        </div>
+    </body>
+</html>

@@ -12,12 +12,14 @@
 
         jsRibbon.component('ClickCheck', ($state) => {
 
-            const handleClick = (event) => {
-                console.log('Main $state:', $state, event.target);
+            const handleClick = (event, data) => {
+                console.log(event.target, data);
+
             };
 
-            const handleHover = () => {
-                alert($state.firstName + ' You have hovered');
+            const handleHover = (event, data) => {
+                // alert($state.firstName + ' You have hovered');
+                console.log(event.target, data);
             }
 
             return { handleClick, handleHover };
@@ -32,8 +34,10 @@
         <div data-bind="component:ClickCheck">
             <div>
                 <p>First name: <input name="firstName" type="text" data-bind="value: firstName" value="Raheel" /></p>
-                <button type="button" data-bind="click: handleClick">Click Me</button>
-                <button type="button" data-bind="mouseenter: handleHover">Hover Me</button>
+                <button type="button" data-bind="click: handleClick" data-valid="false" data-id="25" data-price="12.5"
+                    data-custom="customValue" data-user='{"id":1,"name":"Ali"}'
+                    data-errors='["Invalid email","Password too short"]'>Click Me</button>
+                <!-- <button type="button" data-bind="mouseenter: handleHover" data-id="25" data-custom="customValue">Hover Me</button> -->
             </div>
         </div>
     </div>

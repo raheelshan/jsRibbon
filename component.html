@@ -1,23 +1,63 @@
 <html>
-    <head>
-    
-    </head>
+
+<head>
     <script src="./jsRibbon-enhance-form.js"></script>
     <script src="./jsRibbon-component-state.js"></script>
     <script src="./jsRibbon.js"></script>
-
     <script>
         jsRibbon.autoRegister = true;
+        jsRibbon.hardFail = false;
         console.log(jsRibbon.getComponents());
+
+        jsRibbon.component("CartItems", ($state) => {
+            console.log("CartItems initialized");
+            return {};
+        });
+
+        jsRibbon.component("UserCard", ($state) => {
+            console.log("UserCard initialized");
+            return {};
+        });    
     </script>
-    <body>
-        <div id="container">
-            <div data-bind="component:Login">
+</head>
 
-            </div>
-            <div data-bind="component:Register">
+<body>
+    <div id="container">
+        <!-- <div data-bind="component:Login">
 
-            </div>            
+        </div> -->
+        <!-- <div data-bind="component:Register">
+
+        </div> -->
+
+        <!-- <div data-bind="component:TextComponent">
+            <span data-bind="text:name">Raheel Shan</span>
+        </div> -->
+
+        <!-- <div data-bind="component:TextComponent">
+            <span data-bind="text:name">Raheel Shan</span>
+        </div> -->
+
+        <!-- ✅ Case 1: Component WITH template -->
+        <div data-bind="component:CartItems">
+            <template>
+                <div class="item">
+                    <span data-bind="text:item.name">Apple</span>
+                </div>
+            </template>
         </div>
-    </body>
+
+        <!-- ✅ Case 2: Component WITHOUT template -->
+        <div data-bind="component:UserCard">
+            <div>
+                <span data-bind="text:name">Raheel</span>
+            </div>
+        </div>
+
+
+
+
+    </div>
+</body>
+
 </html>

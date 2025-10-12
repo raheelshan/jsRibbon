@@ -15,16 +15,17 @@ event ----------------------------- Done
 submit ---------------------------- Done
 
 wrap bindnigs in component -------- Done
+parnet and child component: how to pass state  -------- Done
+
 if -------------------------------- Discard
+expose ---------------------------- Discard
+with ------------------------------ Discard
 
 Observable array ----------------------------- Pending
 foreach Observable array--------------------------- Pending
-load state from component if injected by HTML or on load - Pending
 
-expose ---------------------------- Revisit
-with ------------------------------ Pending
+load state from component if injected by HTML or on load - Pending
 new component mutation replaced by innerHTML ------------ Pending
-parnet and child component: how to pass state  -------- Pending
 ----------------
 
 template:true

@@ -1,2 +1,3 @@
-- Multiselect not working
-- Radio default select not working
+- Radio default select not working due to being part of group
+- Events not working for loop in context
+- Template not working when used with <template>

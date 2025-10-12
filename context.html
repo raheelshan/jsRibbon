@@ -20,13 +20,24 @@
 
     jsRibbon.component('Layout', (state, rootElement) => {
 
-        const handleClick = (event) => {
-            let { firstName } = state
-            console.log('Component State:', state.firstName);
+        // const handleClick = (event) => {
+        //     let { firstName } = state
+        //     console.log('Component State:', state.firstName);
+        // };
+
+        // return { handleClick };
+    });
+
+    jsRibbon.component('Users', ($state) => {
+        const editItem = (event, data) => {
+            console.log('Clicked:', data.item);
+            console.log('Index:', data.index);
+            console.log('Owner:', data.owner);
+            console.log('Dataset:', data);
         };
 
-        return { handleClick };
-    });     
+        return { editItem };
+    });    
 </script>
 
 <body>
@@ -74,7 +85,8 @@
                 </div>
             </div>
 
-        </div>         -->
+        </div>         
+        -->
 
         <!-- Attributes in Context
         <div id="container">
@@ -162,7 +174,26 @@
                 <span data-bind="text:textComponent.name">Saleem</span>
             </div>
         </div> -->
-        Checkbox in Context
+
+        <!--
+            Select
+           <div data-bind="component:CityPicker, context : city">
+               <select name="city" id="" data-bind="value:city" multiple>
+                   <option value="">Select</option>
+                   <option value="Karachi">Karachi</option>
+                   <option value="Lahore">Lahore</option>
+                   <option value="Quetta">Quetta</option>
+               </select>
+               <span data-bind="text:city"></span>
+               <div data-bind="component:ChlidClass">
+                   <span data-bind="text:city.city"></span>
+               </div>
+           </div>
+            -->
+
+
+
+        <!-- Checkbox in Context
         <div data-bind="component:Parent, context : parent">
             <label><input type="checkbox" data-bind="toggle:skills" /> Select All</label>
 
@@ -181,8 +212,55 @@
 
                 <p>Selected: <span data-bind="text:parent.skills"></span></p>
             </div>
-        </div>
+        </div> -->
+
+        <!-- Foreach in Context
+        <div data-bind="component:Layout, context : layout">
+            <button data-bind="click:handleClick">Click Me</button>
+
+            <div data-bind="component:Users">
+                
+                <button data-bind="click:layout.handleClick">Click Me</button>
+
+            </div>
+        </div>  -->
+
+        <!-- Foreach in Context
+        <div data-bind="component:Layout, context : layout">
+            <table>
+                <tr>
+                    <td>Name</td>
+                    <td>Age</td>
+                    <td>Action</td>
+                </tr>
+                <tbody data-bind="foreach: [ data: users, as: user ] ">
+                    <tr>
+                        <td data-bind="text:firstName">Raheel Shan</td>
+                        <td data-bind="text:age">40</td>
+                    </tr>
+
+                    <tr>
+                        <td data-bind="text:firstName">Saleem Ahmad</td>
+                        <td data-bind="text:age">21</td>
+                    </tr>
+                    <tr>
+                        <td data-bind="text:firstName">Shoaib Mansoor</td>
+                        <td data-bind="text:age">27</td>
+                    </tr>
+
+                </tbody>
+            </table>
+
+            <div data-bind="component:Users">
+                <ul data-bind="foreach: [ data: layout.users, as: row ] ">
+                    <li data-bind="text: firstName"></li>
+                </ul>
+            </div>
+        </div> -->
+
     </div>
+
+
 </body>
 
 </html>
