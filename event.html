@@ -13,13 +13,13 @@
         jsRibbon.component('ClickCheck', ($state) => {
 
             const handleClick = (event, data) => {
-                console.log(event.target, data);
+                console.log(data);
 
             };
 
             const handleHover = (event, data) => {
                 // alert($state.firstName + ' You have hovered');
-                console.log(event.target, data);
+                console.log(data);
             }
 
             return { handleClick, handleHover };

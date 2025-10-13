@@ -348,20 +348,6 @@
         }
     }
 
-    function resolveForeachContext(el, componentEl) {
-        const parent = el.closest('[data-key][data-foreach-owner]');
-        if (!parent) return null;
-
-        const foreachKey = parent.getAttribute('data-foreach-owner');
-        const dataKey = parent.getAttribute('data-key');
-
-        const state = componentEl.$state?.[foreachKey];
-        if (!Array.isArray(state)) return null;
-
-        const currentItem = state[dataKey];
-        return { foreachKey, dataKey, currentItem, state };
-    }
-
     function resolveMethod(componentEl, fullKey) {
         const parts = fullKey.split('.');
         if (parts.length === 1) {
@@ -403,21 +389,6 @@
         if (current) processBinding(current, result);
 
         return result;
-    }
-
-    function parseForeachBinding(str) {
-        let arrayKey = str;
-        let alias = null;
-        if (str && str.trim().startsWith('[')) {
-            const configStr = str.trim().replace(/^\[|\]$/g, '');
-            const parts = configStr.split(',').map(p => p.trim());
-            parts.forEach(p => {
-                const [k, v] = p.split(':').map(x => x.trim());
-                if (k === 'data') arrayKey = v;
-                if (k === 'as') alias = v;
-            });
-        }
-        return { arrayKey, alias };
     }
 
     function processBinding(str, result) {
@@ -493,60 +464,6 @@
         return el.closest('[data-bind*="foreach:"]') || el.closest('[data-bind*="with:"]');
     }
 
-    /*
-    function renderForeach(container, arr, alias, template, arrayKey, state) {
-        container.innerHTML = '';
-
-        arr.forEach((item, index) => {
-            const clone = template.cloneNode(true);
-
-            // Tag this row with index & owner array
-            clone.setAttribute('data-key', index);
-            clone.setAttribute('data-foreach-owner', arrayKey);
-
-            // Bind text/value fields
-            const bindables = clone.querySelectorAll('[data-bind]');
-
-            const supportedEvents = [
-                'click', 'change', 'input', 'blur', 'focus',
-                'keydown', 'keyup', 'keypress',
-                'mouseenter', 'mouseleave', 'mouseover', 'mouseout',
-                'dblclick', 'contextmenu',
-                'mousedown', 'mouseup'
-            ];
-
-            bindables.forEach(el => {
-                const bindInfo = parseBindings(el.getAttribute('data-bind'));
-                for (let [bType, bKey] of Object.entries(bindInfo)) {
-                    if (bType === 'text') {
-                        el.textContent = item[bKey];
-                    }
-                    if (bType === 'value' && el instanceof HTMLInputElement) {
-                        if (el.type === 'checkbox') {
-                            el.checked = item[bKey];
-                        } else {
-                            el.value = item[bKey];
-                        }
-                    }
-
-                    if (supportedEvents.includes(bType)) {
-                        if (bKey === 'remove') {
-                            el.addEventListener(bType, () => {
-                                state[arrayKey].splice(index, 1);
-                            });
-                        } else if (typeof state[bKey] === 'function') {
-                            el.addEventListener(bType, () => {
-                                state[bKey](item, index, state[arrayKey]);
-                            });
-                        }
-                    }
-                }
-            });
-
-            container.appendChild(clone);
-        });
-    }
-    */
     function renderForeach(el, items, alias, template, arrayKey, state, ctx) {
         el.innerHTML = ''; // clear
 
@@ -795,7 +712,6 @@
         renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
     }
 
-
     function submitBinding(bindings, bindingsMap, el) {
         if (bindings.submit) {
             bindingsMap.push({
@@ -920,34 +836,6 @@
         }
     }
 
-    /*
-    function applySelect(el, key, type, state, update, subscribe) {
-        // ✅ SELECT element
-        if (type === 'value' && el instanceof HTMLSelectElement) {
-
-            // not working for context
-            const parts = key.split('.');
-
-            if (parts.length > 1) {
-                ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
-            }
-
-            const eventToUse = update || 'change';
-
-            el.value = state[key];
-
-            el.addEventListener(eventToUse, e => {
-                state[key] = e.target.value;
-            });
-
-            subscribe(key, val => {
-                if (el.value !== val) el.value = val;
-            });
-
-            return;
-        }
-    }
-    */
     function applySelect(el, key, type, state, update, subscribe) {
         if (type === 'value' && el instanceof HTMLSelectElement) {
             const parts = key.split('.');
@@ -1310,43 +1198,6 @@
 
     function applyForeach(el, key, type, state, update, subscribe) {
 
-        if (type === 'foreach') {
-            const items = state[key];
-            const parent = el;
-            const templateNodes = Array.from(parent.children);
-
-            // Just tag items with $index and $item (optional for future use)
-            console.log(items, parent, templateNodes);
-            return;
-
-            parent.innerHTML = ''; // clear
-
-            items.forEach((item, index) => {
-                const clone = templateNodes[index]?.cloneNode(true);
-                if (!clone) return;
-                const innerBindables = clone.querySelectorAll('[data-bind]');
-
-                innerBindables.forEach(bindEl => {
-                    const bindInfo = parseBindings(bindEl.getAttribute('data-bind'));
-                    Object.entries(bindInfo).forEach(([bType, bKey]) => {
-                        if (bType === 'text') {
-                            bindEl.textContent = item[bKey];
-                        }
-                        if (bType === 'value' && bindEl instanceof HTMLInputElement) {
-                            bindEl.value = item[bKey];
-                            if (bindEl.type === 'checkbox') {
-                                bindEl.checked = !!item[bKey];
-                            }
-                        }
-                    });
-
-                });
-
-                parent.appendChild(clone);
-            });
-
-            return;
-        }
     }
 
     function initializeStateBindings(componentEl, context = {}) {
