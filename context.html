@@ -110,7 +110,8 @@
                     </div>
                 </div>
             </div>
-        </div> -->
+        </div> 
+        -->
 
         <!-- Class in Context
         <div id="container">
@@ -228,47 +229,47 @@
         </div>  
         -->
 
-        Foreach in Context
-        <div data-bind="component:Layout, context : layout">
-            <table>
-                <tr>
-                    <td>Name</td>
-                    <td>Age</td>
-                    <td>Action</td>
-                </tr>
-                <tbody data-bind="foreach: [ data: users, as: user ] ">
-
-                    <template>
-                        <tr>
-                            <td data-bind="text:firstName"></td>
-                            <td data-bind="text:age"></td>
-                        </tr>
-                    </template>
-
-                    <tr>
-                        <td data-bind="text:firstName">Raheel Shan</td>
-                        <td data-bind="text:age">40</td>
-                    </tr>
-
-                    <tr>
-                        <td data-bind="text:firstName">Saleem Ahmad</td>
-                        <td data-bind="text:age">21</td>
-                    </tr>
-                    <tr>
-                        <td data-bind="text:firstName">Shoaib Mansoor</td>
-                        <td data-bind="text:age">27</td>
-                    </tr>
-
-                </tbody>
-            </table>
-
-            <div data-bind="component:Users">
-                <ul data-bind="foreach: [ data: layout.users, as: row ] ">
-                    <li data-bind="text: firstName"></li>
-                </ul>
-            </div>
-        </div>
         <!-- 
+            Foreach in Context
+            <div data-bind="component:Layout, context : layout">
+                <table>
+                    <tr>
+                        <td>Name</td>
+                        <td>Age</td>
+                        <td>Action</td>
+                    </tr>
+                    <tbody data-bind="foreach: [ data: users, as: user ] ">
+    
+                        <template>
+                            <tr>
+                                <td data-bind="text:firstName"></td>
+                                <td data-bind="text:age"></td>
+                            </tr>
+                        </template>
+    
+                        <tr>
+                            <td data-bind="text:firstName">Raheel Shan</td>
+                            <td data-bind="text:age">40</td>
+                        </tr>
+    
+                        <tr>
+                            <td data-bind="text:firstName">Saleem Ahmad</td>
+                            <td data-bind="text:age">21</td>
+                        </tr>
+                        <tr>
+                            <td data-bind="text:firstName">Shoaib Mansoor</td>
+                            <td data-bind="text:age">27</td>
+                        </tr>
+    
+                    </tbody>
+                </table>
+    
+                <div data-bind="component:Users">
+                    <ul data-bind="foreach: [ data: layout.users, as: row ] ">
+                        <li data-bind="text: firstName"></li>
+                    </ul>
+                </div>
+            </div>
         -->
 
     </div>

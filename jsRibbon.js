@@ -346,8 +346,10 @@
                                 }
                             }
 
+                            const finalTarget = handlerName.includes('.') ? target : el;
+
                             // Resolve handler
-                            const fn = window.jsRibbonState.resolveMethod(el, handlerName) || el.$ctx?.[handlerName];
+                            const fn = window.jsRibbonState.resolveMethod(finalTarget, handlerName);// || el.$ctx?.[handlerName];
                             if (typeof fn !== 'function') {
                                 // console.warn(`Handler "${handlerName}" not found in component`);
                                 console.warn(`⚠️ Event handler "${handlerName}" not found in "${name}"`);
