@@ -2,27 +2,26 @@
 
 <head>
     <script src="./jsRibbon-enhance-form.js"></script>
-    <!-- <script src="./jsRibbon-component-foreach.js"></script> -->
     <script src="./jsRibbon-component-state.js"></script>
     <script src="./jsRibbon.js"></script>
 
     <script>
         jsRibbon.autoRegister = true;
 
-        // jsRibbon.component('Fruits', ($state) => {
-        //     const show = () => {
-        //         console.log(JSON.stringify($state));
-        //     };
-        //     return { show };
-        // });
+        jsRibbon.component('Fruits', ($state) => {
+            const show = () => {
+                console.log(JSON.stringify($state));
+            };
+            return { show };
+        });
 
-        // jsRibbon.component('Persons', ($state) => {
-        //     const show = () => {
-        //         let data = { ...$state }
-        //         console.log(JSON.parse(JSON.stringify($state)));
-        //     };
-        //     return { show };
-        // });
+        jsRibbon.component('Persons', ($state) => {
+            const show = () => {
+                let data = { ...$state }
+                console.log(JSON.parse(JSON.stringify($state)));
+            };
+            return { show };
+        });
 
         jsRibbon.component('Users', ($state) => {
             const show = () => {
@@ -34,11 +33,15 @@
                 $state.Date = '2027-12-20'
             }
 
-            const editItem = (event, data) => {
-                console.log(event.target, data);
+            const remove = () => {
+                $state.users.shift();
             }
 
-            return { add, show, editItem };
+            const editItem = (event, data) => {
+                console.log(JSON.parse(JSON.stringify($state)), data);
+            }
+
+            return { add, show, editItem, remove };
         });
 
         /*
@@ -104,7 +107,8 @@
             </ul>
             <button data-bind="click:show">Click Me</button>
         </div>
-        <br> -->
+        <br> 
+        -->
 
         <!-- 
             For Each Object
@@ -143,30 +147,32 @@
                             <tr>
                                 <td data-bind="text:firstName"></td>
                                 <td data-bind="text:age"></td>
-                                <td><button data-bind="click:editItem">Edit</button></td>
+                                <td><button data-bind="click:editItem" data-valid="false" data-id="25" data-price="12.5"
+                                        data-custom="customValue" data-user='{"id":1,"name":"Ali"}'
+                                        data-errors='["Invalid email","Password too short"]'>Edit</button></td>
                                 <td> <button data-bind="click:remove">Remove</button> </td>
                             </tr>
                         </template>
 
-                        <tr>
+                        <!-- <tr>
                             <td data-bind="text:firstName">Raheel Shan</td>
                             <td data-bind="text:age">40</td>
                             <td><button data-bind="click:editItem">Edit</button></td>
-                            <td> <button data-bind="click:remove">Remove</button> </td>
+                            <td> <button data-bind="click:removeItem">Remove</button> </td>
                         </tr>
-                        
+
                         <tr>
                             <td data-bind="text:firstName">Saleem Ahmad</td>
                             <td data-bind="text:age">21</td>
-                            <td><button data-bind="click:editItem" >Edit</button></td>
-                            <td> <button data-bind="click:remove">Remove</button> </td>
+                            <td><button data-bind="click:editItem">Edit</button></td>
+                            <td> <button data-bind="click:removeItem">Remove</button> </td>
                         </tr>
                         <tr>
                             <td data-bind="text:firstName">Shoaib Mansoor</td>
                             <td data-bind="text:age">27</td>
                             <td><button data-bind="click:editItem">Edit</button></td>
-                            <td> <button data-bind="click:remove">Remove</button> </td>
-                        </tr>
+                            <td> <button data-bind="click:removeItem">Remove</button> </td>
+                        </tr> -->
 
                     </tbody>
                 </table>

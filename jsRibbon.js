@@ -281,28 +281,94 @@
                 const ctx = def(el.$state, el) || {};
                 el.$ctx = ctx;
 
+                /*
                 // ✅ 3. If there were any pending events, bind them now
                 if (Array.isArray(el._pendingEvents)) {
                     el._pendingEvents.forEach(({ el: targetEl, type, handlerName }) => {
 
-                        if (!(handlerName === 'remove')) {
-                            if (typeof ctx[handlerName] === 'function') {
-                                // targetEl.addEventListener(type, ctx[handlerName]);
-
-                                targetEl.addEventListener(type, e => {
-                                    let parsedDataset = parseDataset(targetEl.dataset);
-                                    const dataset = { ...parsedDataset };
-                                    delete dataset['bind'];
-                                    ctx[handlerName].call(el.$state || ctx, e, dataset, targetEl);
-                                });
-                            } else {
-                                console.warn(`⚠️ Event handler "${handlerName}" still not found in "${name}"`, targetEl);
-                            }
+                        if (typeof ctx[handlerName] === 'function') {
+                            // targetEl.addEventListener(type, ctx[handlerName]);
+                            targetEl.addEventListener(type, e => {
+                                let parsedDataset = parseDataset(targetEl.dataset);
+                                const dataset = { ...parsedDataset };
+                                delete dataset['bind'];
+                                ctx[handlerName].call(el.$state || ctx, e, dataset, targetEl);
+                            });
+                            
+                        } else {
+                            console.warn(`⚠️ Event handler "${handlerName}" not found in "${name}"`, targetEl);
                         }
-
                     });
                     delete el._pendingEvents;
                 }
+                */
+                // install delegated event handling once per component
+                if (!el._delegatedEventsInstalled) {
+                    el._delegatedEventsInstalled = true;
+
+                    const supportedEvents = [
+                        'click', 'dblclick', 'mouseenter', 'mouseleave',
+                        'mouseover', 'mouseout', 'mousedown', 'mouseup',
+                        'keydown', 'keyup', 'keypress', 'input', 'change', 'focus', 'blur', 'contextmenu'
+                    ];
+
+                    supportedEvents.forEach(evt => {
+                        el.addEventListener(evt, e => {
+                            const target = e.target.closest('[data-bind]');
+                            if (!target || !el.contains(target)) return;
+
+                            // Parse binding string on the element
+                            const bindInfo = window.jsRibbonState.parseBindings(target.getAttribute('data-bind') || '');
+                            const handlerName = bindInfo[evt];
+                            if (!handlerName) return;
+
+                            // Special case: built-in remove
+                            if (evt === 'click' && handlerName === 'removeItem') {
+                                const row = target.closest('[data-key][data-foreach-owner]');
+                                if (!row) return;
+                                const idx = parseInt(row.getAttribute('data-key'), 10);
+                                const owner = row.getAttribute('data-foreach-owner');
+                                const array = el.$state[owner];
+                                if (Array.isArray(array)) array.splice(idx, 1);
+                                return;
+                            }
+
+                            // Figure out which context to call with
+                            let contextToUse = el.$state; // default component context
+
+                            const row = target.closest('[data-key][data-foreach-owner]');
+                            if (row) {
+                                const ownerKey = row.getAttribute('data-foreach-owner');
+                                const idx = parseInt(row.getAttribute('data-key'), 10);
+                                const array = el.$state[ownerKey];
+                                if (Array.isArray(array)) {
+                                    contextToUse = array[idx]; // the item itself
+                                }
+                            }
+
+                            // Resolve handler
+                            const fn = window.jsRibbonState.resolveMethod(el, handlerName) || el.$ctx?.[handlerName];
+                            if (typeof fn !== 'function') {
+                                // console.warn(`Handler "${handlerName}" not found in component`);
+                                console.warn(`⚠️ Event handler "${handlerName}" not found in "${name}"`);
+                                return;
+                            }
+
+                            // Prepare dataset (if you use it)
+                            const parsedDataset = parseDataset(target.dataset || {});
+                            const dataset = { ...parsedDataset };
+                            delete dataset['bind'];
+
+                            try {
+                                fn.call(contextToUse, e, dataset, target);
+                            } catch (err) {
+                                console.error(`Error executing handler "${handlerName}":`, err);
+                            }
+                        });
+                    });
+                }
+
+
 
             } catch (err) {
                 console.warn(`⚠️ Failed to initialize component "${name}"`, err);
@@ -407,13 +473,13 @@
             autoRegister = !!value;
             console.log(`🔁 autoRegister is now ${autoRegister}`);
         },
-        // get hardFail() {
-        //     return hardFail;
-        // },
-        // set hardFail(value) {
-        //     hardFail = !!value;
-        //     console.log(`🔁 hardFail is now ${hardFail}`);
-        // },        
+        get hardFail() {
+            return hardFail;
+        },
+        set hardFail(value) {
+            hardFail = !!value;
+            console.log(`🔁 hardFail is now ${hardFail}`);
+        },        
         unregister(el) {
             unregisterComponent(el);
         },

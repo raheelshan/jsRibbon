@@ -1,7 +1,6 @@
 <html>
 
 <head>
-
     <script src="./jsRibbon-enhance-form.js"></script>
     <script src="./jsRibbon-component-state.js"></script>
     <script src="./jsRibbon.js"></script>
@@ -40,6 +39,16 @@
                 <!-- <button type="button" data-bind="mouseenter: handleHover" data-id="25" data-custom="customValue">Hover Me</button> -->
             </div>
         </div>
+
+        <div data-bind="component:ClickCheck">
+            <div>
+                <p>First name: <input name="firstName" type="text" data-bind="value: firstName" value="Raheel" /></p>
+                <button type="button" data-bind="click: handleClick" data-valid="false" data-id="30" data-price="175"
+                    data-custom="customValue" data-user='{"id":1,"name":"Ali"}'
+                    data-errors='["Invalid email","Password too short"]'>Click Me</button>
+                <!-- <button type="button" data-bind="mouseenter: handleHover" data-id="25" data-custom="customValue">Hover Me</button> -->
+            </div>
+        </div>        
     </div>
 </body>
 
