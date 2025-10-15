@@ -464,59 +464,6 @@
         return el.closest('[data-bind*="foreach:"]') || el.closest('[data-bind*="with:"]');
     }
 
-    function renderForeach(el, items, alias, template, arrayKey, state, ctx) {
-        el.innerHTML = ''; // clear
-
-        items.forEach((item, index) => {
-            const clone = template.cloneNode(true);
-
-            // mark ownership for remove/etc.
-            // after creating clone and before appending it:
-            clone.setAttribute('data-key', index);
-            clone.setAttribute('data-foreach-owner', arrayKey);
-            if (alias) clone.setAttribute('data-foreach-alias', alias);
-
-            // attach runtime references (not attributes) for fast lookup
-            clone._foreach_ownerArray = items;            // the array instance (items param)
-            clone._foreach_ownerArrayName = arrayKey;     // e.g. "users"
-            clone._foreach_ownerState = state;            // authoritative state object that owns the array
-            clone._foreach_ownerSubscribe = (typeof state?.$subscribe === 'function')
-                ? state.$subscribe
-                : (typeof state?.subscribe === 'function' ? state.subscribe : null);
-
-            // bind all inner elements
-            const bindables = clone.querySelectorAll('[data-bind]');
-            bindables.forEach(bindEl => {
-                const bindInfo = parseBindings(bindEl.getAttribute('data-bind'));
-
-                for (let [bType, bKey] of Object.entries(bindInfo)) {
-
-                    // ✅ handle alias — if alias exists, allow row.firstName or firstName
-                    let value;
-                    if (alias && bKey.startsWith(alias + '.')) {
-                        // e.g. bKey = "row.firstName"
-                        const keyPart = bKey.split('.').slice(1).join('.');
-                        value = item[keyPart];
-                    } else {
-                        // fallback: direct key like "firstName"
-                        value = item[bKey];
-                    }
-
-                    // apply value
-                    if (bType === 'text') {
-                        bindEl.textContent = value ?? '';
-                    }
-                    if (bType === 'value' && bindEl instanceof HTMLInputElement) {
-                        bindEl.value = value ?? '';
-                        if (bindEl.type === 'checkbox') bindEl.checked = !!value;
-                    }
-                }
-            });
-
-            el.appendChild(clone);
-        });
-    }
-
     function eventBinding(bindings, bindingsMap, el) {
         const supportedEvents = [
             'click', 'change', 'input', 'blur', 'focus',
@@ -552,10 +499,6 @@
             'mousedown', 'mouseup'
         ];
 
-        if (el.closest('[data-foreach-owner]')) {
-            return; // foreach uses delegation
-        }
-
         if (!supportedEvents.includes(type)) return;
 
         const handlerName = key;
@@ -585,131 +528,6 @@
         // fallback: delay until ctx is ready
         if (!componentEl._pendingEvents) componentEl._pendingEvents = [];
         componentEl._pendingEvents.push({ el, type, handlerName });
-    }
-
-    function foreachBinding(bindings, el, initialState, ctx) {
-        if (!bindings.foreach) return;
-
-        // 1) parse config [ data: foo, as: alias ]
-        let arrayKey = bindings.foreach;
-        let alias = null;
-
-        if (arrayKey.startsWith('[')) {
-            try {
-                const configStr = arrayKey.trim().replace(/^\[|\]$/g, '');
-                const configParts = configStr.split(',').map(p => p.trim());
-                configParts.forEach(part => {
-                    const [k, v] = part.split(':').map(x => x.trim());
-                    if (k === 'data') arrayKey = v;
-                    if (k === 'as') alias = v;
-                });
-            } catch (err) {
-                console.warn('Invalid foreach syntax', arrayKey);
-                return;
-            }
-        }
-
-        // 2) resolve parent context if dotted (e.g. "layout.users")
-        let targetState = initialState;
-        let finalKey = arrayKey;
-
-        if (arrayKey.includes('.')) {
-            // resolvePath returns { state, subscribe, key } for "layout.users"
-            const resolved = resolvePath(el, arrayKey);
-            if (!resolved) {
-                console.warn('Could not resolve foreach data:', arrayKey);
-                return;
-            }
-            targetState = resolved.state;
-            finalKey = resolved.key; // e.g. "users"
-        }
-
-        // 3) build template and initial parsed array from DOM if parent has no array yet
-        let children = Array.from(el.children || []);
-
-        let template = null;
-
-        if (children && children.length > 0) {
-            let tag = children[0];
-
-            if (tag.tagName === 'TEMPLATE') {
-                // The .content is a DocumentFragment holding the real nodes
-                const fragment = tag.content.cloneNode(true);
-                // If you specifically need the first element (like <tr>)
-                const node = fragment.firstElementChild;
-
-                if (!node) {
-                    throw new Error(`Empty <template> in foreach binding "${finalKey}"`);
-                }
-
-                template = node; // assign the actual usable element
-                template.setAttribute('data-template-origin', finalKey);
-
-                // ❌ remove <template> from the DOM so it's not rendered
-                tag.remove();
-            } else {
-                // If not a template, just clone the existing node
-                template = tag.cloneNode(true);
-            }
-        } else {
-            throw new Error(`Markup not found for foreach binding "${finalKey}"`);
-        }
-
-        // Refresh children, excluding <template>
-        children = Array.from(el.children || []).filter(c => c.tagName !== 'TEMPLATE');
-
-        // If parent state already has an array, use it; otherwise parse DOM and set it
-        let arr = Array.isArray(targetState[finalKey]) ? targetState[finalKey] : null;
-
-        if (!arr) {
-            // parse existing DOM children into plain array
-            const parsedArray = children.map(child => {
-                const obj = {};
-                const deepBindables = child.querySelectorAll('[data-bind]');
-                deepBindables.forEach(bindable => {
-                    const bindInfo = parseBindings(bindable.getAttribute('data-bind'));
-                    for (let [bType, bKey] of Object.entries(bindInfo)) {
-                        if (bType === 'text') {
-                            obj[bKey] = bindable.textContent.trim();
-                        }
-                        if (bType === 'value' && bindable instanceof HTMLInputElement) {
-                            obj[bKey] = bindable.type === 'checkbox'
-                                ? bindable.checked
-                                : bindable.value;
-                        }
-                    }
-                });
-                return obj;
-            });
-
-            arr = parsedArray;
-        }
-
-        // 4) wrap the array with a Proxy that re-renders after mutating operations
-        const proxied = new Proxy(arr, {
-            get(target, prop, receiver) {
-                if (['push', 'splice', 'shift', 'unshift', 'pop', 'sort', 'reverse'].includes(prop)) {
-                    return function (...args) {
-                        const result = Array.prototype[prop].apply(target, args);
-                        // on mutation, re-render using finalKey and the authoritative state (targetState)
-                        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
-                        return result;
-                    };
-                }
-                return Reflect.get(target, prop, receiver);
-            },
-            set(target, prop, value, receiver) {
-                const result = Reflect.set(target, prop, value, receiver);
-                renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
-                return result;
-            }
-        });
-
-        // 5) store proxied array back into the authoritative state (parent or local)
-        targetState[finalKey] = proxied;
-
-        // 6) initial render
-        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
     }
 
     function submitBinding(bindings, bindingsMap, el) {
@@ -1196,10 +1014,6 @@
         }
     }
 
-    function applyForeach(el, key, type, state, update, subscribe) {
-
-    }
-
     function initializeStateBindings(componentEl, context = {}) {
         const ctx = componentEl.$ctx || context || {};
         const bindingsMap = [];
@@ -1232,7 +1046,6 @@
             attributeBinding(bindings, initialState, el, bindingsMap);
             submitBinding(bindings, bindingsMap, el);
             eventBinding(bindings, bindingsMap, el);
-            foreachBinding(bindings, el, initialState, ctx);
         });
 
         const { state, subscribe } = createReactiveState(initialState);
@@ -1259,7 +1072,6 @@
                 applyAttribute(el, key, type, state, subscribe)
                 applySubmit(el, key, type, bindings, componentEl)
                 applyEvent(el, key, type, state, componentEl) // done
-                // applyForeach(el, key, type, state, updateEvent, subscribe)
             });
         });
     }
