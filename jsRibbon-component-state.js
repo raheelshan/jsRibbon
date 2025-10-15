@@ -651,8 +651,8 @@
 
         /*
         // 6) initial render
-        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
         */
+       renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
     }
 
     function submitBinding(bindings, bindingsMap, el) {
@@ -1145,6 +1145,19 @@
         }
         let { alias, template, finalKey } = data;
 
+        if (finalKey.includes('.')) {
+            // resolvePath returns { state, subscribe, key } for "layout.users"
+            const resolved = resolvePath(el, finalKey);
+            if (!resolved) {
+                console.warn('Could not resolve foreach data:', finalKey);
+                return;
+            }
+            targetState = resolved.state;
+            finalKey = resolved.key; // e.g. "users"
+        } 
+        
+        console.log(state, finalKey, state[finalKey]);
+
         renderForeach(el, state[finalKey], alias, template, finalKey, state, ctx);
     }
 
@@ -1205,7 +1218,7 @@
                 applyClass(el, key, type, state, subscribe)
                 applyAttribute(el, key, type, state, subscribe)
                 applySubmit(el, key, type, bindings, componentEl)
-                applyForeach(el, type, state, data, ctx)
+                // applyForeach(el, type, state, data, ctx)
             });
         });
     }
