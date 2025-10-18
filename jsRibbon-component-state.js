@@ -542,6 +542,7 @@
         // 2) resolve parent context if dotted (e.g. "layout.users")
         let targetState = initialState;
         let finalKey = arrayKey;
+        let originalKey = arrayKey;
 
         if (arrayKey.includes('.')) {
             // resolvePath returns { state, subscribe, key } for "layout.users"
@@ -646,13 +647,14 @@
             finalKey: finalKey,
             alias,
             template,
-            targetState
+            targetState,
+            originalKey
         });
 
         /*
         // 6) initial render
+        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
         */
-       renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
     }
 
     function submitBinding(bindings, bindingsMap, el) {
@@ -1143,22 +1145,20 @@
         if (!(type === 'foreach')) {
             return;
         }
-        let { alias, template, finalKey } = data;
+        let { alias, template, finalKey, originalKey, targetState } = data;
 
-        if (finalKey.includes('.')) {
+        if (originalKey.includes('.')) {
             // resolvePath returns { state, subscribe, key } for "layout.users"
-            const resolved = resolvePath(el, finalKey);
+            const resolved = resolvePath(el, originalKey);
             if (!resolved) {
-                console.warn('Could not resolve foreach data:', finalKey);
+                console.warn('Could not resolve foreach data:', originalKey);
                 return;
             }
-            targetState = resolved.state;
+            state = resolved.state;
             finalKey = resolved.key; // e.g. "users"
-        } 
-        
-        console.log(state, finalKey, state[finalKey]);
+        }
 
-        renderForeach(el, state[finalKey], alias, template, finalKey, state, ctx);
+        renderForeach(el, targetState[finalKey], alias, template, originalKey, state, ctx);
     }
 
     function initializeStateBindings(componentEl, context = {}) {
@@ -1218,7 +1218,7 @@
                 applyClass(el, key, type, state, subscribe)
                 applyAttribute(el, key, type, state, subscribe)
                 applySubmit(el, key, type, bindings, componentEl)
-                // applyForeach(el, type, state, data, ctx)
+                applyForeach(el, type, state, data, ctx)
             });
         });
     }
