@@ -477,8 +477,6 @@
             // bind all inner elements
             const bindables = clone.querySelectorAll('[data-bind]');
 
-            console.log(bindables)
-
             bindables.forEach(bindEl => {
                 const bindInfo = parseBindings(bindEl.getAttribute('data-bind'));
 
@@ -631,8 +629,6 @@
                 return result;
             }
         });
-
-        //renderForeach(el, targetState[finalKey], alias, template, originalKey, state, ctx);
 
         // 5) store proxied array back into the authoritative state (parent or local)
         targetState[finalKey] = proxied;
@@ -989,7 +985,6 @@
 
                 let bindings = splitBindings(`${type}:${key}`);
                 let { refs: finalBindings, names: bindingNames } = extractBindings(bindings);
-                console.log(finalBindings, bindingNames)
 
                 finalBindings.forEach((current, index) => {
 
@@ -1150,8 +1145,6 @@
             state = resolved.state;
             finalKey = resolved.key; // e.g. "users"
         }
-
-        console.log( targetState[finalKey],  state[finalKey])
 
         renderForeach(el, targetState[finalKey], alias, template, originalKey, state, ctx);
     }
