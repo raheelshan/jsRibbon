@@ -304,16 +304,6 @@
         }
     }
 
-    function resolveBindingKey(binding) {
-        if (!binding) return null;
-
-        if (typeof binding === 'string') return binding;
-        if (binding.type === 'ident') return binding.name;
-        if (binding.type === 'raw') return binding.raw;
-        if (binding.type === 'literal') return binding.value;
-        return null;
-    }
-
     function toTitleCase(str) {
         return str
             // Insert space before each uppercase letter (e.g. classChecker → class Checker)
@@ -486,16 +476,22 @@
 
             // bind all inner elements
             const bindables = clone.querySelectorAll('[data-bind]');
+
+            console.log(bindables)
+
             bindables.forEach(bindEl => {
                 const bindInfo = parseBindings(bindEl.getAttribute('data-bind'));
 
                 for (let [bType, bKey] of Object.entries(bindInfo)) {
 
                     // ✅ handle alias — if alias exists, allow row.firstName or firstName
+
                     let value;
+
                     if (alias && bKey.startsWith(alias + '.')) {
                         // e.g. bKey = "row.firstName"
                         const keyPart = bKey.split('.').slice(1).join('.');
+                        
                         value = item[keyPart];
                     } else {
                         // fallback: direct key like "firstName"
@@ -636,6 +632,8 @@
             }
         });
 
+        //renderForeach(el, targetState[finalKey], alias, template, originalKey, state, ctx);
+
         // 5) store proxied array back into the authoritative state (parent or local)
         targetState[finalKey] = proxied;
 
@@ -650,11 +648,6 @@
             targetState,
             originalKey
         });
-
-        /*
-        // 6) initial render
-        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
-        */
     }
 
     function submitBinding(bindings, bindingsMap, el) {
@@ -1158,6 +1151,8 @@
             finalKey = resolved.key; // e.g. "users"
         }
 
+        console.log( targetState[finalKey],  state[finalKey])
+
         renderForeach(el, targetState[finalKey], alias, template, originalKey, state, ctx);
     }
 
@@ -1225,8 +1220,8 @@
 
     window.jsRibbonState = {
         init: initializeStateBindings,
-        parseBindings, 
-        resolveMethod, 
+        parseBindings,
+        resolveMethod,
         enhanceForm,            // ← add these
         applySwap
     };

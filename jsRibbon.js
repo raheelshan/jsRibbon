@@ -281,27 +281,6 @@
                 const ctx = def(el.$state, el) || {};
                 el.$ctx = ctx;
 
-                /*
-                // ✅ 3. If there were any pending events, bind them now
-                if (Array.isArray(el._pendingEvents)) {
-                    el._pendingEvents.forEach(({ el: targetEl, type, handlerName }) => {
-
-                        if (typeof ctx[handlerName] === 'function') {
-                            // targetEl.addEventListener(type, ctx[handlerName]);
-                            targetEl.addEventListener(type, e => {
-                                let parsedDataset = parseDataset(targetEl.dataset);
-                                const dataset = { ...parsedDataset };
-                                delete dataset['bind'];
-                                ctx[handlerName].call(el.$state || ctx, e, dataset, targetEl);
-                            });
-                            
-                        } else {
-                            console.warn(`⚠️ Event handler "${handlerName}" not found in "${name}"`, targetEl);
-                        }
-                    });
-                    delete el._pendingEvents;
-                }
-                */
                 // install delegated event handling once per component
                 if (!el._delegatedEventsInstalled) {
                     el._delegatedEventsInstalled = true;
