@@ -321,13 +321,11 @@
         const parts = fullKey.split('.');
 
         if (parts.length > 1) {
-
-            const parentContext = toTitleCase(parts[0]);
+            const parentContext = toTitleCase(parts[0]);            
             const binding = parts[1];
-
             let parent = componentEl.parentElement;
-
             while (parent) {
+                console.log(parent, parent.$state ,fullKey,   parent.getAttribute('data-bind')?.includes(`component:${parentContext}`))
                 if (parent.$state && parent.getAttribute('data-bind')?.includes(`component:${parentContext}`)) {
                     return { state: parent.$state, subscribe: parent.$subscribe, key: binding };
                 }
@@ -633,7 +631,7 @@
 
         if (arrayKey.includes('.')) {
             // resolvePath returns { state, subscribe, key } for "layout.users"
-            const resolved = resolvePath(el, arrayKey);
+            const resolved = resolvePath(el, finalKey);
             if (!resolved) {
                 console.warn('Could not resolve foreach data:', arrayKey);
                 return;
@@ -646,7 +644,7 @@
 
     }
 
-    function getForeachMarkup(el) {
+    function getForeachMarkup(el, finalKey) {
         let children = Array.from(el.children || []);
 
         let template = null;
@@ -752,7 +750,7 @@
         let { targetState, finalKey, originalKey } = resolveForeachParentContext(el, initialState, arrayKey);
 
         // 3) build template and initial parsed array from DOM if parent has no array yet
-        let { children, template } = getForeachMarkup(el);
+        let { children, template } = getForeachMarkup(el, finalKey);
 
         // 4) If parent state already has an array, use it; otherwise parse DOM and set it
         let arr = getParsedForeachArray(children, targetState[finalKey]);
