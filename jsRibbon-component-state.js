@@ -454,60 +454,152 @@
         return el.closest('[data-bind*="foreach:"]') || el.closest('[data-bind*="with:"]');
     }
 
-    function renderForeach(el, items, alias, template, arrayKey, state, ctx) {
-        el.innerHTML = ''; // clear
+    function renderForeach(el, items = [], alias, template, arrayKey, state, ctx) {
+        // Normalize items to array
+        items = Array.isArray(items) ? items : [];
 
-        items.forEach((item, index) => {
-            const clone = template.cloneNode(true);
+        // If first render and server-rendered children exist -> hydrate them
+        if (!el._foreach_hydrated) {
+            const existingChildren = Array.from(el.children || []).filter(n => !n.hasAttribute('data-template-origin'));
+            // Map existing children to items by index or by data-key if provided
+            existingChildren.forEach((child, i) => {
+                const item = items[i];
+                if (!item) return; // more DOM than data; will be cleaned later
 
-            // mark ownership for remove/etc.
-            // after creating clone and before appending it:
-            clone.setAttribute('data-key', index);
-            clone.setAttribute('data-foreach-owner', arrayKey);
-            if (alias) clone.setAttribute('data-foreach-alias', alias);
+                // Ensure row has data-key and owner
+                const keyVal = (item && (item.id ?? item.key ?? i));
+                child.setAttribute('data-key', String(keyVal));
+                child.setAttribute('data-foreach-owner', arrayKey);
+                if (alias) child.setAttribute('data-foreach-alias', alias);
 
-            // attach runtime references (not attributes) for fast lookup
-            clone._foreach_ownerArray = items;            // the array instance (items param)
-            clone._foreach_ownerArrayName = arrayKey;     // e.g. "users"
-            clone._foreach_ownerState = state;            // authoritative state object that owns the array
-            clone._foreach_ownerSubscribe = (typeof state?.$subscribe === 'function')
-                ? state.$subscribe
-                : (typeof state?.subscribe === 'function' ? state.subscribe : null);
+                // attach runtime references (same as for clones)
+                child._foreach_ownerArray = items;
+                child._foreach_ownerArrayName = arrayKey;
+                child._foreach_ownerState = state;
+                child._foreach_ownerSubscribe = (typeof state?.$subscribe === 'function') ? state.$subscribe : (typeof state?.subscribe === 'function' ? state.subscribe : null);
 
-            // bind all inner elements
-            const bindables = clone.querySelectorAll('[data-bind]');
+                // Fill values from the item into the existing DOM (hydrate)
+                const bindables = child.querySelectorAll('[data-bind]');
+                bindables.forEach(bindEl => {
+                    const bindInfo = parseBindings(bindEl.getAttribute('data-bind') || '');
+                    for (let [bType, bKey] of Object.entries(bindInfo)) {
+                        // resolve alias
+                        let value;
+                        if (alias && bKey.startsWith(alias + '.')) {
+                            const keyPart = bKey.split('.').slice(1).join('.');
+                            value = (item && (item[keyPart] ?? '')) ?? '';
+                        } else {
+                            value = (item && (item[bKey] ?? '')) ?? '';
+                        }
 
-            bindables.forEach(bindEl => {
-                const bindInfo = parseBindings(bindEl.getAttribute('data-bind'));
-
-                for (let [bType, bKey] of Object.entries(bindInfo)) {
-
-                    // ✅ handle alias — if alias exists, allow row.firstName or firstName
-
-                    let value;
-
-                    if (alias && bKey.startsWith(alias + '.')) {
-                        // e.g. bKey = "row.firstName"
-                        const keyPart = bKey.split('.').slice(1).join('.');
-
-                        value = item[keyPart];
-                    } else {
-                        // fallback: direct key like "firstName"
-                        value = item[bKey];
+                        if (bType === 'text') {
+                            bindEl.textContent = Array.isArray(value) ? value.join(', ') : (value ?? '');
+                        } else if (bType === 'value' && bindEl instanceof HTMLInputElement) {
+                            bindEl.value = value ?? '';
+                            if (bindEl.type === 'checkbox') bindEl.checked = !!value;
+                        } else if (bType === 'attr') {
+                            // basic attr handling: set attributes that map to state keys
+                            try {
+                                const cleaned = bKey.trim().replace(/^\[|\]$/g, '').trim();
+                                const pairs = cleaned.split(',').map(p => p.trim());
+                                pairs.forEach(pair => {
+                                    const [stateKey, attrName] = pair.split(/\s*=>\s*/);
+                                    if (!stateKey || !attrName) return;
+                                    let v;
+                                    if (alias && stateKey.startsWith(alias + '.')) {
+                                        v = item[stateKey.split('.').slice(1).join('.')] ?? '';
+                                    } else {
+                                        v = item[stateKey] ?? '';
+                                    }
+                                    bindEl.setAttribute(attrName, v);
+                                });
+                            } catch (e) { }
+                        }
+                        // (extend for other binding types as needed)
                     }
-
-                    // apply value
-                    if (bType === 'text') {
-                        bindEl.textContent = value ?? '';
-                    }
-                    if (bType === 'value' && bindEl instanceof HTMLInputElement) {
-                        bindEl.value = value ?? '';
-                        if (bindEl.type === 'checkbox') bindEl.checked = !!value;
-                    }
-                }
+                });
             });
 
-            el.appendChild(clone);
+            el._foreach_hydrated = true;
+        }
+
+        // After hydration, reconcile: ensure DOM matches items length and keys
+        // Build map of existing nodes by key
+        const existingNodes = new Map();
+        Array.from(el.children).forEach(node => {
+            const k = node.getAttribute && node.getAttribute('data-key');
+            if (k != null) existingNodes.set(String(k), node);
+        });
+
+        const desiredKeys = [];
+        items.forEach((item, index) => {
+            const key = String(item?.id ?? item?.key ?? index);
+            desiredKeys.push(key);
+            if (existingNodes.has(key)) {
+                // update existing node's contents (in case item changed)
+                const node = existingNodes.get(key);
+                const bindables = node.querySelectorAll('[data-bind]');
+                bindables.forEach(bindEl => {
+                    const bindInfo = parseBindings(bindEl.getAttribute('data-bind') || '');
+                    for (let [bType, bKey] of Object.entries(bindInfo)) {
+                        let value;
+                        if (alias && bKey.startsWith(alias + '.')) {
+                            const keyPart = bKey.split('.').slice(1).join('.');
+                            value = item[keyPart];
+                        } else {
+                            value = item[bKey];
+                        }
+                        if (bType === 'text') {
+                            bindEl.textContent = Array.isArray(value) ? value.join(', ') : (value ?? '');
+                        } else if (bType === 'value' && bindEl instanceof HTMLInputElement) {
+                            if (bindEl.type === 'checkbox') bindEl.checked = !!value;
+                            else if (bindEl.type === 'radio') {
+                                bindEl.checked = (bindEl.value == value);
+                            } else bindEl.value = value ?? '';
+                        }
+                    }
+                });
+            } else {
+                // create new node for this item (clone template)
+                const clone = template.cloneNode(true);
+                clone.setAttribute('data-key', key);
+                clone.setAttribute('data-foreach-owner', arrayKey);
+                if (alias) clone.setAttribute('data-foreach-alias', alias);
+
+                clone._foreach_ownerArray = items;
+                clone._foreach_ownerArrayName = arrayKey;
+                clone._foreach_ownerState = state;
+                clone._foreach_ownerSubscribe = (typeof state?.$subscribe === 'function') ? state.$subscribe : (typeof state?.subscribe === 'function' ? state.subscribe : null);
+
+                // Fill values into clone just like hydration
+                const bindables = clone.querySelectorAll('[data-bind]');
+                bindables.forEach(bindEl => {
+                    const bindInfo = parseBindings(bindEl.getAttribute('data-bind') || '');
+                    for (let [bType, bKey] of Object.entries(bindInfo)) {
+                        let value;
+                        if (alias && bKey.startsWith(alias + '.')) {
+                            const keyPart = bKey.split('.').slice(1).join('.');
+                            value = item[keyPart];
+                        } else {
+                            value = item[bKey];
+                        }
+                        if (bType === 'text') bindEl.textContent = Array.isArray(value) ? value.join(', ') : (value ?? '');
+                        else if (bType === 'value' && bindEl instanceof HTMLInputElement) {
+                            bindEl.value = value ?? '';
+                            if (bindEl.type === 'checkbox') bindEl.checked = !!value;
+                        }
+                    }
+                });
+
+                el.appendChild(clone);
+            }
+        });
+
+        // Remove nodes that are no longer in the data
+        existingNodes.forEach((node, key) => {
+            if (!desiredKeys.includes(key)) {
+                node.remove();
+            }
         });
     }
 
@@ -592,13 +684,21 @@
     }
 
     function getForeachProxy(el, arr, alias, template, finalKey, targetState, ctx) {
+        let rendering = false;
+
+        function rerender() {
+            if (rendering) return;
+            rendering = true;
+            renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
+            rendering = false;
+        }
+
         return new Proxy(arr, {
             get(target, prop, receiver) {
                 if (['push', 'splice', 'shift', 'unshift', 'pop', 'sort', 'reverse'].includes(prop)) {
                     return function (...args) {
                         const result = Array.prototype[prop].apply(target, args);
-                        // on mutation, re-render using finalKey and the authoritative state (targetState)
-                        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
+                        rerender();               // single controlled call
                         return result;
                     };
                 }
@@ -606,7 +706,7 @@
             },
             set(target, prop, value, receiver) {
                 const result = Reflect.set(target, prop, value, receiver);
-                renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
+                rerender();
                 return result;
             }
         });
@@ -1173,7 +1273,15 @@
             finalKey = resolved.key; // e.g. "users"
         }
 
-        renderForeach(el, targetState[finalKey], alias, template, originalKey, state, ctx);
+        // renderForeach(el, targetState[finalKey], alias, template, originalKey, state, ctx);
+
+        if (type === 'foreach' && !el._hydrated) {
+            el._hydrated = true; // prevent double init
+            // skip first render — DOM is already rendered
+        } else {
+            applyForeach(el, type, state, data, ctx);
+        }
+
     }
 
     function initializeStateBindings(componentEl, context = {}) {
@@ -1182,6 +1290,7 @@
         const initialState = {};
         const keyUsageCount = {};
 
+        /*
         const allBindings = document.querySelectorAll('[data-bind]');
         const bindables = [];
 
@@ -1194,6 +1303,24 @@
                 console.warn('⚠️ Found data-bind element outside any component:', el);
             }
         });
+        */
+
+        const allBindings = componentEl.querySelectorAll('[data-bind]');
+        const bindables = [];
+
+        // Collect only top-level bindables inside component, but skip bindables that are
+        // inside a foreach container (we'll let foreach manage its own children).
+        allBindings.forEach(el => {
+            // include the foreach container itself, but skip elements nested *within* a foreach container
+            const foreachAncestor = el.closest('[data-bind*="foreach:"]');
+            if (foreachAncestor && foreachAncestor !== el) {
+                // this element is inside a foreach — skip global binding
+                return;
+            }
+
+            bindables.push(el);
+        });
+
 
         // First pass: collect bindings and count usage        
         bindables.forEach(el => {
