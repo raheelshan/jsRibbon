@@ -489,7 +489,7 @@
                     if (alias && bKey.startsWith(alias + '.')) {
                         // e.g. bKey = "row.firstName"
                         const keyPart = bKey.split('.').slice(1).join('.');
-                        
+
                         value = item[keyPart];
                     } else {
                         // fallback: direct key like "firstName"
@@ -511,10 +511,7 @@
         });
     }
 
-    function foreachBinding(bindings, el, initialState, ctx, bindingsMap) {
-        if (!bindings.foreach) return;
-
-        // 1) parse config [ data: foo, as: alias ]
+    function resolveForeachBinding(bindings) {
         let arrayKey = bindings.foreach;
         let alias = null;
 
@@ -533,7 +530,11 @@
             }
         }
 
-        // 2) resolve parent context if dotted (e.g. "layout.users")
+        return { arrayKey, alias }
+
+    }
+
+    function resolveForeachParentContext(el, initialState, arrayKey) {
         let targetState = initialState;
         let finalKey = arrayKey;
         let originalKey = arrayKey;
@@ -549,7 +550,11 @@
             finalKey = resolved.key; // e.g. "users"
         }
 
-        // 3) build template and initial parsed array from DOM if parent has no array yet
+        return { targetState, finalKey, originalKey }
+
+    }
+
+    function getForeachMarkup(el) {
         let children = Array.from(el.children || []);
 
         let template = null;
@@ -583,8 +588,32 @@
         // Refresh children, excluding <template>
         children = Array.from(el.children || []).filter(c => c.tagName !== 'TEMPLATE');
 
-        // If parent state already has an array, use it; otherwise parse DOM and set it
-        let arr = Array.isArray(targetState[finalKey]) ? targetState[finalKey] : null;
+        return { children, template };
+    }
+
+    function getForeachProxy(el, arr, alias, template, finalKey, targetState, ctx) {
+        return new Proxy(arr, {
+            get(target, prop, receiver) {
+                if (['push', 'splice', 'shift', 'unshift', 'pop', 'sort', 'reverse'].includes(prop)) {
+                    return function (...args) {
+                        const result = Array.prototype[prop].apply(target, args);
+                        // on mutation, re-render using finalKey and the authoritative state (targetState)
+                        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
+                        return result;
+                    };
+                }
+                return Reflect.get(target, prop, receiver);
+            },
+            set(target, prop, value, receiver) {
+                const result = Reflect.set(target, prop, value, receiver);
+                renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
+                return result;
+            }
+        });
+    }
+
+    function getParsedForeachArray(children, state) {
+        let arr = Array.isArray(state) ? state : null;
 
         if (!arr) {
             // parse existing DOM children into plain array
@@ -610,28 +639,26 @@
             arr = parsedArray;
         }
 
-        // 4) wrap the array with a Proxy that re-renders after mutating operations
-        const proxied = new Proxy(arr, {
-            get(target, prop, receiver) {
-                if (['push', 'splice', 'shift', 'unshift', 'pop', 'sort', 'reverse'].includes(prop)) {
-                    return function (...args) {
-                        const result = Array.prototype[prop].apply(target, args);
-                        // on mutation, re-render using finalKey and the authoritative state (targetState)
-                        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
-                        return result;
-                    };
-                }
-                return Reflect.get(target, prop, receiver);
-            },
-            set(target, prop, value, receiver) {
-                const result = Reflect.set(target, prop, value, receiver);
-                renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
-                return result;
-            }
-        });
+        return arr;
+    }
 
-        // 5) store proxied array back into the authoritative state (parent or local)
-        targetState[finalKey] = proxied;
+    function foreachBinding(bindings, el, initialState, ctx, bindingsMap) {
+        if (!bindings.foreach) return;
+
+        // 1) parse config [ data: foo, as: alias ]
+        let { arrayKey, alias } = resolveForeachBinding(bindings)
+
+        // 2) resolve parent context if dotted (e.g. "layout.users")
+        let { targetState, finalKey, originalKey } = resolveForeachParentContext(el, initialState, arrayKey);
+
+        // 3) build template and initial parsed array from DOM if parent has no array yet
+        let { children, template } = getForeachMarkup(el);
+
+        // 4) If parent state already has an array, use it; otherwise parse DOM and set it
+        let arr = getParsedForeachArray(children, targetState[finalKey]);
+
+        // 5) wrap the array with a Proxy that re-renders after mutating operations and store proxied array back into the authoritative state (parent or local)
+        targetState[finalKey] = getForeachProxy(el, arr, alias, template, finalKey, targetState, ctx);
 
         bindingsMap.push({
             el,
