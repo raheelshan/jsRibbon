@@ -71,7 +71,8 @@
                 <span data-bind="text:title">Footer</span>
             </div>
 
-        </div> -->
+        </div> 
+        -->
 
         <!-- 
             Event in Context
@@ -232,14 +233,14 @@
         <!-- 
             -->
             Foreach in Context
-            <div data-bind="component:Layout, context : layout">
+            <div data-bind="component:Layout1, context : layout1">
                 <table>
                     <tr>
                         <td>Name</td>
                         <td>Age</td>
                         <td>Action</td>
                     </tr>
-                    <tbody data-bind="foreach: [ data: users, as: user ] ">
+                    <tbody data-bind="foreach:users ">
     
                         <template>
                             <tr>
@@ -266,8 +267,11 @@
                 </table>
     
                 <div data-bind="component:Users">
-                    <ul data-bind="foreach: [ data: layout.users, as: row ] ">
-                        <li data-bind="text: firstName"></li>
+                    <ul data-bind="foreach:layout.users">
+                        <template>
+                            <li data-bind="text: firstName"></li>
+                        </template>
+
                     </ul>
                 </div>
             </div>

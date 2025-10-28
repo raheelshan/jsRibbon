@@ -454,31 +454,61 @@
         return el.closest('[data-bind*="foreach:"]') || el.closest('[data-bind*="with:"]');
     }
 
-    function renderForeach(el, items, alias, template, arrayKey, state, ctx) {
+    function renderForeach(el, items, alias, template, arrayKey, state) {
+
+        // resolve nested context every time we render
+        if (arrayKey.includes('.')) {
+            const resolved = resolvePath(el, arrayKey);
+            if (!resolved) {
+                console.warn('Could not resolve foreach data:', arrayKey);
+                return;
+            }
+
+            state = resolved.state;
+            const key = resolved.key;
+            items = state[key];
+            arrayKey = key; // so data-foreach-owner isn't "layout.users"
+        }
+
+        // console.log(el)
+
+
         el.innerHTML = ''; // clear
 
         items.forEach((item, index) => {
             const clone = template.cloneNode(true);
-
             // mark ownership for remove/etc.
             // after creating clone and before appending it:
             clone.setAttribute('data-key', index);
             clone.setAttribute('data-foreach-owner', arrayKey);
-            if (alias) clone.setAttribute('data-foreach-alias', alias);
 
-            // attach runtime references (not attributes) for fast lookup
-            clone._foreach_ownerArray = items;            // the array instance (items param)
-            clone._foreach_ownerArrayName = arrayKey;     // e.g. "users"
-            clone._foreach_ownerState = state;            // authoritative state object that owns the array
-            clone._foreach_ownerSubscribe = (typeof state?.$subscribe === 'function')
-                ? state.$subscribe
-                : (typeof state?.subscribe === 'function' ? state.subscribe : null);
+            // if (alias) clone.setAttribute('data-foreach-alias', alias);
+
+            // // attach runtime references (not attributes) for fast lookup
+            // clone._foreach_ownerArray = items;            // the array instance (items param)
+            // clone._foreach_ownerArrayName = arrayKey;     // e.g. "users"
+            // clone._foreach_ownerState = state;            // authoritative state object that owns the array
+            // clone._foreach_ownerSubscribe = (typeof state?.$subscribe === 'function')
+            //     ? state.$subscribe
+            //     : (typeof state?.subscribe === 'function' ? state.subscribe : null);
+            /*
+            */
 
             // bind all inner elements
-            const bindables = clone.querySelectorAll('[data-bind]');
+            // const bindables = clone.querySelectorAll('[data-bind]');
+
+            let bindables = [];
+
+            if (clone.hasAttribute('data-bind')) {
+                bindables.push(clone);
+            }
+
+            bindables = bindables.concat(Array.from(clone.querySelectorAll('[data-bind]')));            
 
             bindables.forEach(bindEl => {
                 const bindInfo = parseBindings(bindEl.getAttribute('data-bind'));
+
+                // console.log(bindEl);
 
                 for (let [bType, bKey] of Object.entries(bindInfo)) {
 
@@ -554,7 +584,7 @@
 
     }
 
-    function getForeachMarkup(el) {
+    function getForeachMarkup(el, finalKey) {
         let children = Array.from(el.children || []);
 
         let template = null;
@@ -591,14 +621,14 @@
         return { children, template };
     }
 
-    function getForeachProxy(el, arr, alias, template, finalKey, targetState, ctx) {
+    function getForeachProxy(el, arr, alias, template, finalKey, targetState) {
         return new Proxy(arr, {
             get(target, prop, receiver) {
                 if (['push', 'splice', 'shift', 'unshift', 'pop', 'sort', 'reverse'].includes(prop)) {
                     return function (...args) {
                         const result = Array.prototype[prop].apply(target, args);
                         // on mutation, re-render using finalKey and the authoritative state (targetState)
-                        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
+                        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState);
                         return result;
                     };
                 }
@@ -606,7 +636,7 @@
             },
             set(target, prop, value, receiver) {
                 const result = Reflect.set(target, prop, value, receiver);
-                renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState, ctx);
+                renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState);
                 return result;
             }
         });
@@ -642,7 +672,7 @@
         return arr;
     }
 
-    function foreachBinding(bindings, el, initialState, ctx, bindingsMap) {
+    function foreachBinding(bindings, el, initialState, bindingsMap) {
         if (!bindings.foreach) return;
 
         // 1) parse config [ data: foo, as: alias ]
@@ -652,13 +682,13 @@
         let { targetState, finalKey, originalKey } = resolveForeachParentContext(el, initialState, arrayKey);
 
         // 3) build template and initial parsed array from DOM if parent has no array yet
-        let { children, template } = getForeachMarkup(el);
+        let { children, template } = getForeachMarkup(el, finalKey);
 
         // 4) If parent state already has an array, use it; otherwise parse DOM and set it
         let arr = getParsedForeachArray(children, targetState[finalKey]);
 
         // 5) wrap the array with a Proxy that re-renders after mutating operations and store proxied array back into the authoritative state (parent or local)
-        targetState[finalKey] = getForeachProxy(el, arr, alias, template, finalKey, targetState, ctx);
+        targetState[finalKey] = getForeachProxy(el, arr, alias, template, finalKey, targetState);
 
         bindingsMap.push({
             el,
@@ -1156,7 +1186,7 @@
         }
     }
 
-    function applyForeach(el, type, state, data, ctx) {
+    function applyForeach(el, type, state, data) {
         if (!(type === 'foreach')) {
             return;
         }
@@ -1173,7 +1203,7 @@
             finalKey = resolved.key; // e.g. "users"
         }
 
-        renderForeach(el, targetState[finalKey], alias, template, originalKey, state, ctx);
+        renderForeach(el, targetState[finalKey], alias, template, originalKey, state);
     }
 
     function initializeStateBindings(componentEl, context = {}) {
@@ -1182,7 +1212,7 @@
         const initialState = {};
         const keyUsageCount = {};
 
-        const allBindings = document.querySelectorAll('[data-bind]');
+        const allBindings = componentEl.querySelectorAll('[data-bind]');
         const bindables = [];
 
         allBindings.forEach(el => {
@@ -1207,7 +1237,7 @@
             classBinding(bindings, initialState, el, bindingsMap);
             attributeBinding(bindings, initialState, el, bindingsMap);
             submitBinding(bindings, bindingsMap, el);
-            foreachBinding(bindings, el, initialState, ctx, bindingsMap);
+            foreachBinding(bindings, el, initialState, bindingsMap);
         });
 
         const { state, subscribe } = createReactiveState(initialState);
