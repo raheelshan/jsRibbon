@@ -325,7 +325,6 @@
             const binding = parts[1];
             let parent = componentEl.parentElement;
             while (parent) {
-                console.log(parent, parent.$state ,fullKey,   parent.getAttribute('data-bind')?.includes(`component:${parentContext}`))
                 if (parent.$state && parent.getAttribute('data-bind')?.includes(`component:${parentContext}`)) {
                     return { state: parent.$state, subscribe: parent.$subscribe, key: binding };
                 }
@@ -335,6 +334,28 @@
             throw new Error(`Context "${parentContext}" not found for binding "${fullKey}"`);
         }
     }
+
+    function resolveParentPath(componentEl, fullKey) {
+
+        const parts = fullKey.split('.');
+
+        if (parts.length > 1) {
+            const parentContext = toTitleCase(parts[0]);            
+            const binding = parts[1];
+
+            let parent = componentEl.parentElement;
+
+            while (parent) {
+                if (parent.getAttribute('data-bind')?.includes(`component:${parentContext}`)) {
+                    console.log(parent.$subscribe)
+                    return { state: parent.$state, subscribe: parent.$subscribe, key: binding };
+                }
+                parent = parent.parentElement;
+            }
+
+            throw new Error(`Context "${parentContext}" not found for binding "${fullKey}"`);
+        }
+    }    
 
     function resolveMethod(componentEl, fullKey) {
         const parts = fullKey.split('.');
@@ -631,7 +652,7 @@
 
         if (arrayKey.includes('.')) {
             // resolvePath returns { state, subscribe, key } for "layout.users"
-            const resolved = resolvePath(el, finalKey);
+            const resolved = resolveParentPath(el, finalKey);
             if (!resolved) {
                 console.warn('Could not resolve foreach data:', arrayKey);
                 return;
@@ -747,7 +768,7 @@
         let { arrayKey, alias } = resolveForeachBinding(bindings)
 
         // 2) resolve parent context if dotted (e.g. "layout.users")
-        let { targetState, finalKey, originalKey } = resolveForeachParentContext(el, initialState, arrayKey);
+        let { targetState, finalKey, originalKey } = resolveForeachParentContext(el, initialState, arrayKey);    
 
         // 3) build template and initial parsed array from DOM if parent has no array yet
         let { children, template } = getForeachMarkup(el, finalKey);
@@ -1258,6 +1279,7 @@
         if (!(type === 'foreach')) {
             return;
         }
+        
         let { alias, template, finalKey, originalKey, targetState } = data;
 
         if (originalKey.includes('.')) {
@@ -1302,23 +1324,22 @@
             }
         });
         */
+        
+       const allBindings = componentEl.querySelectorAll('[data-bind]');
+       const bindables = [];
 
-        const allBindings = componentEl.querySelectorAll('[data-bind]');
-        const bindables = [];
+       // Collect only top-level bindables inside component, but skip bindables that are
+       // inside a foreach container (we'll let foreach manage its own children).
+       allBindings.forEach(el => {
+           // include the foreach container itself, but skip elements nested *within* a foreach container
+           const foreachAncestor = el.closest('[data-bind*="foreach:"]');
+           if (foreachAncestor && foreachAncestor !== el) {
+               // this element is inside a foreach — skip global binding
+               return;
+           }
 
-        // Collect only top-level bindables inside component, but skip bindables that are
-        // inside a foreach container (we'll let foreach manage its own children).
-        allBindings.forEach(el => {
-            // include the foreach container itself, but skip elements nested *within* a foreach container
-            const foreachAncestor = el.closest('[data-bind*="foreach:"]');
-            if (foreachAncestor && foreachAncestor !== el) {
-                // this element is inside a foreach — skip global binding
-                return;
-            }
-
-            bindables.push(el);
-        });
-
+           bindables.push(el);
+       });
 
         // First pass: collect bindings and count usage        
         bindables.forEach(el => {
