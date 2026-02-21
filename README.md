@@ -123,15 +123,3 @@ Example: use HTMX to POST a form and replace a component area; jsRibbon's `Mutat
 - If a handler isn't found, ensure the method exists on the component's returned context or use a dotted name to reference a parent method.
 
 ---
-
-## Example demo
-
-See `example.html` in this repo — it demonstrates:
-
-- Component registration and events
-- Foreach with template and server-hydrated rows
-- Dynamic insertion of component markup (showing MutationObserver auto-registration)
-
----
-
-If you'd like, I can also generate a published `package.json` or a short CHANGELOG and a separate `example.html` (already included) with comments. 
