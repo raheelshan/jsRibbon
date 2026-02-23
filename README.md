@@ -4,7 +4,10 @@
 
 jsRibbon attaches behavior to server-rendered HTML using `data-bind` attributes. It treats the DOM as both the markup and the authoritative state: the DOM is the markup, and the DOM is the state. The library watches the document for new HTML (via a `MutationObserver`) and makes newly inserted markup reactive automatically — without the developer needing to recall or rebind components.
 
----
+
+## Documentation
+
+Full documentation is available at: [https://jsribbon.raheelshan.com/](https://jsribbon.raheelshan.com/)
 
 ## Features
 
