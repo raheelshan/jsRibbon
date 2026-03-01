@@ -18,26 +18,36 @@
     jsRibbon.autoRegister = true;
     // console.log(jsRibbon.getComponents());
 
-    jsRibbon.component('Layout', (state, rootElement) => {
+    // jsRibbon.component('Layout1', (state, rootElement) => {
 
-        const handleClick = (event) => {
-            let { firstName } = state
-            console.log('Component State:', state.firstName);
+    //     const handleClick = (event) => {
+    //         let { firstName } = state
+    //         console.log('Component State:', state.firstName);
+    //     };
+
+    //     return { handleClick };
+    // });
+
+    jsRibbon.component('Layout1', ($state) => {
+        const show = () => {
+            console.log(JSON.parse(JSON.stringify($state)));
         };
 
-        return { handleClick };
-    });
+        const add = () => {
+            $state.users.push({ firstName: 'Saber', age: 20 });
+            $state.Date = '2027-12-20'
+        }
 
-    jsRibbon.component('Users', ($state) => {
+        const remove = () => {
+            $state.users.shift();
+        }
+
         const editItem = (event, data) => {
-            console.log('Clicked:', data.item);
-            console.log('Index:', data.index);
-            console.log('Owner:', data.owner);
             console.log('Dataset:', data);
         };
 
-        return { editItem };
-    });    
+        return { add, show, editItem, remove };
+    });     
 </script>
 
 <body>
@@ -232,49 +242,59 @@
 
         <!-- 
             -->
-            Foreach in Context
-            <div data-bind="component:Layout1, context : layout1">
-                <table>
-                    <tr>
-                        <td>Name</td>
-                        <td>Age</td>
-                        <td>Action</td>
-                    </tr>
-                    <tbody data-bind="foreach:users ">
-    
-                        <template>
-                            <tr>
-                                <td data-bind="text:firstName"></td>
-                                <td data-bind="text:age"></td>
-                            </tr>
-                        </template>
-    
-                        <tr>
-                            <td data-bind="text:firstName">Raheel Shan</td>
-                            <td data-bind="text:age">40</td>
-                        </tr>
-    
-                        <tr>
-                            <td data-bind="text:firstName">Saleem Ahmad</td>
-                            <td data-bind="text:age">21</td>
-                        </tr>
-                        <tr>
-                            <td data-bind="text:firstName">Shoaib Mansoor</td>
-                            <td data-bind="text:age">27</td>
-                        </tr>
-    
-                    </tbody>
-                </table>
-    
-                <div data-bind="component:Users">
-                    <ul data-bind="foreach:layout.users">
-                        <template>
-                            <li data-bind="text: firstName"></li>
-                        </template>
+        Foreach in Context
+        <div data-bind="component:Layout1, context : layout1">
+            <table>
+                <tr>
+                    <td>Name</td>
+                    <td>Age</td>
+                    <td>Action</td>
+                </tr>
+                <tbody data-bind="foreach:users ">
 
-                    </ul>
-                </div>
+                    <template>
+                        <tr>
+                            <td data-bind="text:firstName"></td>
+                            <td data-bind="text:age"></td>
+                            <td><button data-bind="click:editItem">Edit</button></td>
+                            <td> <button data-bind="click:removeItem">Remove</button> </td>
+                        </tr>
+                    </template>
+
+                    <tr>
+                        <td data-bind="text:firstName">Raheel Shan</td>
+                        <td data-bind="text:age">40</td>
+                        <td><button data-bind="click:editItem" data-valid="false" data-id="25" data-price="12.5" data-user='{"id":1,"name":"Ali"}' data-custom="customValue" data-errors='["Invalid email","Password too short"]'>Edit</button></td>
+                        <td> <button data-bind="click:removeItem">Remove</button> </td>
+                    </tr>
+
+                    <tr>
+                        <td data-bind="text:firstName">Saleem Ahmad</td>
+                        <td data-bind="text:age">21</td>
+                        <td><button data-bind="click:editItem" data-id="21">Edit</button></td>
+                        <td> <button data-bind="click:removeItem">Remove</button> </td>
+                    </tr>
+                    <tr>
+                        <td data-bind="text:firstName">Shoaib Mansoor</td>
+                        <td data-bind="text:age">27</td>
+                        <td><button data-bind="click:editItem" data-id="27">Edit</button></td>
+                        <td> <button data-bind="click:removeItem">Remove</button> </td>
+                    </tr>
+
+                </tbody>
+            </table>
+
+            <div data-bind="component:Users">
+                <ul data-bind="foreach:layout.users">
+                    <template>
+                        <li data-bind="text: firstName"></li>
+                    </template>
+
+                </ul>
             </div>
+            <button data-bind="click:add">Add More</button>
+            <button data-bind="click:show">Show</button>
+        </div>
 
     </div>
 
