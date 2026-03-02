@@ -71,6 +71,7 @@ import 'jsribbon';
 
 ## Core Features
 
+- **component** — Define element as ocmponent
 - **text** — Bind element text content
 - **value** — Two-way input binding
 - **html** — Bind inner HTML
@@ -78,8 +79,9 @@ import 'jsribbon';
 - **class** — Bind CSS classes
 - **attr** — Bind HTML attributes
 - **click** — Handle click events
-- **submit** — Handle form submission
+- **submit & ajax** — Handle form submission
 - **foreach** — Render list items
+- **context** — define context of component for composition
 - **Checkbox & radio** — Multi-value form controls
 - **Reactive arrays** — Auto-update on mutations
 - **Automatic hydration** — MutationObserver for dynamic content
