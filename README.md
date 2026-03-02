@@ -71,7 +71,7 @@ import 'jsribbon';
 
 ## Core Features
 
-- **component** — Define element as ocmponent
+- **component** — Define element component
 - **text** — Bind element text content
 - **value** — Two-way input binding
 - **html** — Bind inner HTML
