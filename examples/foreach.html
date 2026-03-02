@@ -139,11 +139,10 @@
                 <table>
                     <tr>
                         <td>Name</td>
-                        <td>DD</td>
                         <td>Age</td>
                         <td>Action</td>
                     </tr>
-                    <tbody data-bind="foreach:users ">
+                    <tbody data-bind="foreach: [ data: users, as: user ] ">
 
                         <!-- <template>
                             <tr>
@@ -157,7 +156,6 @@
                         </template> -->
 
                         <tr>
-                            <td data-bind="text:id">1</td>
                             <td data-bind="text:firstName">Raheel Shan</td>
                             <td data-bind="text:age">40</td>
                             <td><button data-bind="click:editItem" >Edit</button></td>
@@ -165,14 +163,12 @@
                         </tr>
 
                         <tr>
-                            <td data-bind="text:id">2</td>
                             <td data-bind="text:firstName">Saleem Ahmad</td>
                             <td data-bind="text:age">21</td>
                             <td><button data-bind="click:editItem">Edit</button></td>
                             <td> <button data-bind="click:removeItem">Remove</button> </td>
                         </tr>
                         <tr>
-                            <td data-bind="text:id">3</td>
                             <td data-bind="text:firstName">Shoaib Mansoor</td>
                             <td data-bind="text:age">27</td>
                             <td><button data-bind="click:editItem">Edit</button></td>
