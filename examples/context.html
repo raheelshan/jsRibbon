@@ -256,30 +256,32 @@
                         <tr>
                             <td data-bind="text:firstName"></td>
                             <td data-bind="text:age"></td>
-                            <td><button data-bind="click:editItem">Edit</button></td>
-                            <td> <button data-bind="click:removeItem">Remove</button> </td>
+                            <td><button data-bind="click:editItem" data-valid="false" data-id="25" data-price="12.5"
+                                    data-custom="customValue" data-user='{"id":1,"name":"Ali"}'
+                                    data-errors='["Invalid email","Password too short"]'>Edit</button></td>
+                            <td> <button data-bind="click:remove">Remove</button> </td>
                         </tr>
                     </template>
 
-                    <tr>
+                    <!-- <tr>
                         <td data-bind="text:firstName">Raheel Shan</td>
                         <td data-bind="text:age">40</td>
-                        <td><button data-bind="click:editItem" data-valid="false" data-id="25" data-price="12.5" data-user='{"id":1,"name":"Ali"}' data-custom="customValue" data-errors='["Invalid email","Password too short"]'>Edit</button></td>
+                        <td><button data-bind="click:editItem" data-id="40">Edit</button></td>
                         <td> <button data-bind="click:removeItem">Remove</button> </td>
                     </tr>
 
                     <tr>
                         <td data-bind="text:firstName">Saleem Ahmad</td>
                         <td data-bind="text:age">21</td>
-                        <td><button data-bind="click:editItem" data-id="21">Edit</button></td>
+                        <td><button data-bind="click:editItem">Edit</button></td>
                         <td> <button data-bind="click:removeItem">Remove</button> </td>
                     </tr>
                     <tr>
                         <td data-bind="text:firstName">Shoaib Mansoor</td>
                         <td data-bind="text:age">27</td>
-                        <td><button data-bind="click:editItem" data-id="27">Edit</button></td>
+                        <td><button data-bind="click:editItem">Edit</button></td>
                         <td> <button data-bind="click:removeItem">Remove</button> </td>
-                    </tr>
+                    </tr> -->
 
                 </tbody>
             </table>

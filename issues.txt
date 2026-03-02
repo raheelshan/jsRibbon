@@ -1,3 +1,0 @@
-- Radio default select not working due to being part of group
-- Events not working for context inside forEach for row
-- Make text and other bindings work inside forEach for context 
