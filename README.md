@@ -54,19 +54,18 @@ import 'jsribbon';
 ## Basic Example
 
 ```html
-<div data-component="Counter">
-    <h2 data-bind="text: count"></h2>
-    <button data-bind="click: increment">+</button>
+<div data-bind="component:Counter">
+  <span data-bind="text:count">0</span>
+  <button data-bind="click:increment">+</button>
+  <button data-bind="click:decrement">−</button>
 </div>
 
 <script>
-jsRibbon.component('Counter', ($state) => {
-    $state.count = 0;
-
-    $state.increment = () => {
-        $state.count++;
-    };
-});
+  jsRibbon.component('Counter', ($state) => {
+    const increment = () => $state.count++;
+    const decrement = () => $state.count--;
+    return { increment, decrement };
+  });
 </script>
 ```
 
