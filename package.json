@@ -3,10 +3,6 @@
   "version": "1.0.0",
   "description": "A minimal DOM-first reactive UI library",
   "main": "dist/jsRibbon.js",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/raheelshan/jsRibbon"
-  },
   "scripts": {
     "build": "terser src/jsRibbon.js -o dist/jsRibbon.min.js -c -m"
   },
@@ -19,10 +15,7 @@
   ],
   "author": "Raheel Shan",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/raheelshan/jsRibbon/issues"
-  },
-  "homepage": "https://github.com/raheelshan/jsRibbon#readme",
+  "homepage": "https://jsribbon.raheelshan.com/",
   "devDependencies": {
     "terser": "^5.46.0"
   }
