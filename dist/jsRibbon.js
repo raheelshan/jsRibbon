@@ -1,91 +1,3 @@
-function enhanceForm({
-    formId,
-    targetId,
-    method = null,
-    swap = "innerHTML",
-    beforeSend = null,
-    onSuccess = null,
-    onError = null
-}) {
-    const form = document.getElementById(formId);
-    const target = document.getElementById(targetId) || form.closest('[data-bind*="component:"]');
-
-    if (!form || !target) {
-        console.warn("Invalid formId or targetId passed.");
-        return;
-    }
-
-    form.addEventListener("submit", async function (e) {
-        e.preventDefault();
-
-        if (typeof beforeSend === "function") {
-            beforeSend(form);
-        }
-
-        const formData = new FormData(form);
-        const reqMethod = method || form.method || "POST";
-
-        try {
-            const response = await fetch(form.action, {
-                method: reqMethod.toUpperCase(),
-                headers: {
-                    'X-Requested-With': 'fetch',
-                },
-                body: formData
-            });
-
-            const contentType = response.headers.get("content-type") || "";
-            let result;
-
-            if (contentType.includes("application/json")) {
-                result = await response.json();
-            } else {
-                result = await response.text();
-            }
-
-            if (response.ok) {
-                if (typeof onSuccess === "function") {
-                    onSuccess(result);
-                } else {
-                    applySwap(target, result, swap);
-                }
-            } else {
-                if (typeof onError === "function") {
-                    onError(result, response.status);
-                } else {
-                    applySwap(target, `<strong>Error:</strong> ${response.status}`, swap);
-                }
-            }
-        } catch (err) {
-            if (typeof onError === "function") {
-                onError(err.message, 0);
-            } else {
-                applySwap(target, `<strong>Network Error:</strong> ${err.message}`, swap);
-            }
-        }
-    });
-}
-
-function applySwap(target, content, swap) {
-
-    console.log(target, content, swap)
-
-    switch (swap) {
-        case "outerHTML":
-            target.outerHTML = content;
-            break;
-        case "append":
-            target.insertAdjacentHTML("beforeend", content);
-            break;
-        case "prepend":
-            target.insertAdjacentHTML("afterbegin", content);
-            break;
-        case "innerHTML":
-        default:
-            target.innerHTML = content;
-    }
-}
-
 (function () {
 
     function textBinding(bindings, bindingsMap, el, initialState) {
@@ -214,34 +126,13 @@ function applySwap(target, content, swap) {
         bindings.forEach(binding => {
             let [key, value] = parseKeyValue(binding);
 
-            if (key === 'value') {
-                refs.push(value);
-                names.push(key); // "value"
-            }
-            else if (key === 'click') {
-                // prepend parent context if missing dot
-                if (!value.includes('.')) refs.push('cart.' + value);
-                else refs.push(value);
-                names.push(key); // "click"
-            }
-            else if (key === 'class' || key === 'attr') {
+            if (key === 'class' || key === 'attr') {
                 let inner = value.replace(/^\[|\]$/g, '').trim();
                 let parts = splitBindings(inner);
                 parts.forEach(p => {
                     let [from, to] = p.split('=>').map(x => x.trim());
                     refs.push(from);
                     names.push(to); // take right-hand DOM binding
-                });
-            }
-            else if (key === 'foreach') {
-                let inner = value.replace(/^\[|\]$/g, '').trim();
-                let parts = splitBindings(inner);
-                parts.forEach(p => {
-                    let [k, v] = parseKeyValue(p);
-                    if (k === 'data') {
-                        refs.push(v);
-                        names.push(key); // "foreach"
-                    }
                 });
             }
         });
@@ -422,7 +313,8 @@ function applySwap(target, content, swap) {
                 parent = parent.parentElement;
             }
 
-            throw new Error(`Context "${parentContext}" not found for binding "${fullKey}"`);
+            console.warn(`Context "${parentContext}" not found for binding "${fullKey}"`);
+            return undefined;
         }
     }
 
@@ -542,6 +434,84 @@ function applySwap(target, content, swap) {
         return el.closest('[data-bind*="foreach:"]') || el.closest('[data-bind*="with:"]');
     }
 
+    function resolveForeachItemValue(item, alias, bKey) {
+        // handle alias — if alias exists, allow row.firstName, bare "row" (primitive item), or firstName
+        if (alias && bKey === alias) {
+            return item;
+        }
+        if (alias && bKey.startsWith(alias + '.')) {
+            // e.g. bKey = "row.firstName"
+            const keyPart = bKey.split('.').slice(1).join('.');
+            return item[keyPart];
+        }
+        // fallback: direct key like "firstName"
+        return item[bKey];
+    }
+
+    function applyRowClassOrAttr(bindEl, raw, item, alias, kind) {
+        // Same [key => domName, ...] shape as the top-level class/attr bindings,
+        // just resolved against the row's item instead of component state.
+        const cleaned = (raw || '').trim().replace(/^\[|\]$/g, '').trim();
+        const pairs = cleaned.split(',').map(p => p.trim()).filter(Boolean);
+
+        for (const pair of pairs) {
+            const [key, name] = pair.split(/\s*=>\s*/).map(x => x && x.trim());
+            if (!key || !name) continue;
+
+            const value = resolveForeachItemValue(item, alias, key);
+
+            if (kind === 'class') {
+                bindEl.classList.toggle(name, !!value);
+            } else {
+                bindEl.setAttribute(name, value ?? '');
+            }
+        }
+    }
+
+    function bindRowFields(rowEl, item, alias) {
+        let bindables = [];
+
+        if (rowEl.hasAttribute('data-bind')) {
+            bindables.push(rowEl);
+        }
+
+        bindables = bindables.concat(Array.from(rowEl.querySelectorAll('[data-bind]')));
+
+        bindables.forEach(bindEl => {
+            const bindInfo = parseBindings(bindEl.getAttribute('data-bind'));
+
+            for (let [bType, bKey] of Object.entries(bindInfo)) {
+
+                if (bType === 'class' || bType === 'attr') {
+                    applyRowClassOrAttr(bindEl, bKey, item, alias, bType);
+                    continue;
+                }
+
+                const value = resolveForeachItemValue(item, alias, bKey);
+
+                if (bType === 'text') {
+                    const text = value ?? '';
+                    if (bindEl.textContent !== String(text)) bindEl.textContent = text;
+                } else if (bType === 'html') {
+                    const html = value ?? '';
+                    if (bindEl.innerHTML !== String(html)) bindEl.innerHTML = html;
+                } else if (bType === 'visible') {
+                    bindEl.style.display = value ? '' : 'none';
+                } else if (bType === 'readonly') {
+                    bindEl.readOnly = !!value;
+                } else if (bType === 'disabled') {
+                    bindEl.disabled = !!value;
+                } else if (bType === 'value' && bindEl instanceof HTMLInputElement) {
+                    if (bindEl.type === 'checkbox') {
+                        bindEl.checked = !!value;
+                    } else if (bindEl.value !== (value ?? '')) {
+                        bindEl.value = value ?? '';
+                    }
+                }
+            }
+        });
+    }
+
     function renderForeach(el, items, alias, template, arrayKey, state) {
 
         // resolve nested context every time we render
@@ -558,75 +528,34 @@ function applySwap(target, content, swap) {
             arrayKey = key; // so data-foreach-owner isn't "layout.users"
         }
 
-        // console.log(el)
-
-
-        el.innerHTML = ''; // clear
+        // Reuse existing row nodes by index instead of tearing everything down.
+        // On the very first call, el.children ARE the original server-rendered
+        // rows (the <template> tag, if any, was already stripped by
+        // getForeachMarkup before this ever runs) — so this hydrates in place.
+        const rows = Array.from(el.children);
 
         items.forEach((item, index) => {
-            const clone = template.cloneNode(true);
-            // mark ownership for remove/etc.
-            // after creating clone and before appending it:
-            clone.setAttribute('data-key', index);
-            clone.setAttribute('data-foreach-owner', arrayKey);
+            let row = rows[index];
 
-            // if (alias) clone.setAttribute('data-foreach-alias', alias);
-
-            // // attach runtime references (not attributes) for fast lookup
-            // clone._foreach_ownerArray = items;            // the array instance (items param)
-            // clone._foreach_ownerArrayName = arrayKey;     // e.g. "users"
-            // clone._foreach_ownerState = state;            // authoritative state object that owns the array
-            // clone._foreach_ownerSubscribe = (typeof state?.$subscribe === 'function')
-            //     ? state.$subscribe
-            //     : (typeof state?.subscribe === 'function' ? state.subscribe : null);
-            /*
-            */
-
-            // bind all inner elements
-            // const bindables = clone.querySelectorAll('[data-bind]');
-
-            let bindables = [];
-
-            if (clone.hasAttribute('data-bind')) {
-                bindables.push(clone);
+            if (row) {
+                row.setAttribute('data-key', index);
+                row.setAttribute('data-foreach-owner', arrayKey);
+                row.setAttribute('data-foreach-alias', alias || '');
+                bindRowFields(row, item, alias);
+            } else {
+                const clone = template.cloneNode(true);
+                clone.setAttribute('data-key', index);
+                clone.setAttribute('data-foreach-owner', arrayKey);
+                clone.setAttribute('data-foreach-alias', alias || '');
+                bindRowFields(clone, item, alias);
+                el.appendChild(clone);
             }
-
-            bindables = bindables.concat(Array.from(clone.querySelectorAll('[data-bind]')));            
-
-            bindables.forEach(bindEl => {
-                const bindInfo = parseBindings(bindEl.getAttribute('data-bind'));
-
-                // console.log(bindEl);
-
-                for (let [bType, bKey] of Object.entries(bindInfo)) {
-
-                    // ✅ handle alias — if alias exists, allow row.firstName or firstName
-
-                    let value;
-
-                    if (alias && bKey.startsWith(alias + '.')) {
-                        // e.g. bKey = "row.firstName"
-                        const keyPart = bKey.split('.').slice(1).join('.');
-
-                        value = item[keyPart];
-                    } else {
-                        // fallback: direct key like "firstName"
-                        value = item[bKey];
-                    }
-
-                    // apply value
-                    if (bType === 'text') {
-                        bindEl.textContent = value ?? '';
-                    }
-                    if (bType === 'value' && bindEl instanceof HTMLInputElement) {
-                        bindEl.value = value ?? '';
-                        if (bindEl.type === 'checkbox') bindEl.checked = !!value;
-                    }
-                }
-            });
-
-            el.appendChild(clone);
         });
+
+        // Array shrank — drop the leftover trailing rows.
+        for (let i = rows.length - 1; i >= items.length; i--) {
+            rows[i].remove();
+        }
     }
 
     function resolveForeachBinding(bindings) {
@@ -789,17 +718,6 @@ function applySwap(target, content, swap) {
             targetState,
             originalKey
         });
-    }
-
-    function submitBinding(bindings, bindingsMap, el) {
-        if (bindings.submit) {
-            bindingsMap.push({
-                el,
-                type: 'submit',
-                key: bindings.submit, // either 'ajax' or 'default'
-                bindings: bindings,
-            });
-        }
     }
 
     function attributeBinding(bindings, initialState, el, bindingsMap) {
@@ -1135,6 +1053,11 @@ function applySwap(target, content, swap) {
 
                     let result = resolvePath(el, current);
 
+                    if (!result) {
+                        console.warn('Could not resolve class binding:', current);
+                        return;
+                    }
+
                     let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
 
                     let className = bindingNames[index];
@@ -1190,6 +1113,12 @@ function applySwap(target, content, swap) {
 
                 finalBindings.forEach((current, index) => {
                     let result = resolvePath(el, current);
+
+                    if (!result) {
+                        console.warn('Could not resolve attr binding:', current);
+                        return;
+                    }
+
                     let { state: targetState, subscribe: targetSubscribe, key: finalKey } = result;
 
                     try {
@@ -1237,43 +1166,6 @@ function applySwap(target, content, swap) {
         }
     }
 
-    function applySubmit(el, key, type, bindings, componentEl) {
-        if (type === 'submit' && el instanceof HTMLFormElement) {
-
-            const parts = key.split('.');
-
-            if (parts.length > 1) {
-                ({ key } = resolvePath(el, key) || { key });
-            }
-
-            const behavior = key.trim(); // ajax or default
-            const swap = bindings.swap?.trim() || 'innerHTML';
-
-            if (behavior === 'ajax') {
-                const formId = el.id || `form-${Math.random().toString(36).slice(2)}`;
-                el.id = formId;
-
-                const parentComponent = componentEl;
-                const targetId = parentComponent.id || `target-${Math.random().toString(36).slice(2)}`;
-                parentComponent.id = targetId;
-
-                const ctx = componentEl.$ctx || {};
-
-                enhanceForm({
-                    formId,
-                    targetId,
-                    swap,
-                    beforeSend: ctx.beforeSend,
-                    onSuccess: ctx.onSuccess,
-                    onError: ctx.onError
-                });
-            }
-
-            // If "default", do nothing – browser will handle it
-            return;
-        }
-    }
-
     function applyForeach(el, type, state, data) {
         if (!(type === 'foreach')) {
             return;
@@ -1294,8 +1186,7 @@ function applySwap(target, content, swap) {
         renderForeach(el, targetState[finalKey], alias, template, originalKey, state);
     }
 
-    function initializeStateBindings(componentEl, context = {}) {
-        const ctx = componentEl.$ctx || context || {};
+    function initializeStateBindings(componentEl) {
         const bindingsMap = [];
         const initialState = {};
         const keyUsageCount = {};
@@ -1306,11 +1197,21 @@ function applySwap(target, content, swap) {
         allBindings.forEach(el => {
             const nearestComponent = el.closest('[data-bind*="component:"]');
 
-            if (nearestComponent === componentEl) {
-                bindables.push(el); // ✅ Inside this specific component
-            } else if (!nearestComponent) {
-                console.warn('⚠️ Found data-bind element outside any component:', el);
+            if (nearestComponent !== componentEl) {
+                if (!nearestComponent) {
+                    console.warn('⚠️ Found data-bind element outside any component:', el);
+                }
+                return;
             }
+
+            // Descendants of a foreach row are bound by renderForeach/bindRowFields
+            // against the row's own item data, not by the component-level state —
+            // skip them here so this pass doesn't clobber what the row renderer set.
+            if (el.parentElement && isInsideLoopOrWith(el.parentElement)) {
+                return;
+            }
+
+            bindables.push(el); // ✅ Inside this specific component
         });
 
         // First pass: collect bindings and count usage        
@@ -1324,7 +1225,6 @@ function applySwap(target, content, swap) {
             htmlBinding(bindings, bindingsMap, el, initialState);
             classBinding(bindings, initialState, el, bindingsMap);
             attributeBinding(bindings, initialState, el, bindingsMap);
-            submitBinding(bindings, bindingsMap, el);
             foreachBinding(bindings, el, initialState, bindingsMap);
         });
 
@@ -1350,8 +1250,7 @@ function applySwap(target, content, swap) {
                 applyHtml(el, key, type, state, subscribe)
                 applyClass(el, key, type, state, subscribe)
                 applyAttribute(el, key, type, state, subscribe)
-                applySubmit(el, key, type, bindings, componentEl)
-                applyForeach(el, type, state, data, ctx)
+                applyForeach(el, type, state, data)
             });
         });
     }
@@ -1360,8 +1259,7 @@ function applySwap(target, content, swap) {
         init: initializeStateBindings,
         parseBindings,
         resolveMethod,
-        enhanceForm,            // ← add these
-        applySwap
+        bindRowFields
     };
 })();
 
@@ -1550,6 +1448,55 @@ function applySwap(target, content, swap) {
         return null;
     }
 
+    function resolveForeachRow(el, target) {
+        const row = target.closest('[data-key][data-foreach-owner]');
+        if (!row || !el.contains(row)) return null;
+
+        const ownerKey = row.getAttribute('data-foreach-owner');
+        const idx = parseInt(row.getAttribute('data-key'), 10);
+        const array = el.$state[ownerKey];
+        if (!Array.isArray(array)) return null;
+
+        return {
+            row,
+            idx,
+            array,
+            item: array[idx],
+            alias: row.getAttribute('data-foreach-alias') || null
+        };
+    }
+
+    function resolveRowValueUpdateEvent(target, bindInfo) {
+        if (!bindInfo.value) return null;
+        if (bindInfo.update) return bindInfo.update.trim();
+        return (target.type === 'checkbox' || target.type === 'radio') ? 'change' : 'input';
+    }
+
+    function writeForeachRowValue(rowInfo, target, key) {
+        const { item, row, alias } = rowInfo;
+
+        if (target.type === 'checkbox') {
+            item[key] = target.checked;
+        } else if (target.type === 'number') {
+            const min = target.hasAttribute('min') ? parseFloat(target.getAttribute('min')) : null;
+            const max = target.hasAttribute('max') ? parseFloat(target.getAttribute('max')) : null;
+            let val = parseFloat(target.value);
+            if (!isNaN(val)) {
+                if (min !== null && val < min) val = min;
+                if (max !== null && val > max) val = max;
+            } else {
+                val = '';
+            }
+            item[key] = val;
+        } else {
+            item[key] = target.value;
+        }
+
+        // Re-sync the rest of this row's bindings (e.g. a text: display of the
+        // same field) — scoped to this one row, not a full list re-render.
+        window.jsRibbonState.bindRowFields(row, item, alias);
+    }
+
     function hasExpectedParent(el, expectedParent) {
         let parent = el.parentElement;
         while (parent) {
@@ -1637,7 +1584,7 @@ function applySwap(target, content, swap) {
         // ✅ 1. Initialize state
         // Initialize the state first
         if (window.jsRibbonState?.init) {
-            window.jsRibbonState.init(el, el.$context);
+            window.jsRibbonState.init(el);
         }
 
         // ✅ 2. Register component methods after state is ready
@@ -1665,32 +1612,32 @@ function applySwap(target, content, swap) {
 
                             // Parse binding string on the element
                             const bindInfo = window.jsRibbonState.parseBindings(target.getAttribute('data-bind') || '');
+
+                            // Editable value: binding inside a foreach row — resolved and
+                            // written here (via data-key, at event time) rather than a
+                            // per-row listener, so it stays correct after row reuse.
+                            if (bindInfo.value && resolveRowValueUpdateEvent(target, bindInfo) === evt) {
+                                const rowInfo = resolveForeachRow(el, target);
+                                if (rowInfo) {
+                                    writeForeachRowValue(rowInfo, target, bindInfo.value.trim());
+                                    return;
+                                }
+                            }
+
                             const handlerName = bindInfo[evt];
                             if (!handlerName) return;
 
+                            const rowInfo = resolveForeachRow(el, target);
+
                             // Special case: built-in remove
                             if (evt === 'click' && handlerName === 'removeItem') {
-                                const row = target.closest('[data-key][data-foreach-owner]');
-                                if (!row) return;
-                                const idx = parseInt(row.getAttribute('data-key'), 10);
-                                const owner = row.getAttribute('data-foreach-owner');
-                                const array = el.$state[owner];
-                                if (Array.isArray(array)) array.splice(idx, 1);
+                                if (!rowInfo) return;
+                                rowInfo.array.splice(rowInfo.idx, 1);
                                 return;
                             }
 
                             // Figure out which context to call with
-                            let contextToUse = el.$state; // default component context
-
-                            const row = target.closest('[data-key][data-foreach-owner]');
-                            if (row) {
-                                const ownerKey = row.getAttribute('data-foreach-owner');
-                                const idx = parseInt(row.getAttribute('data-key'), 10);
-                                const array = el.$state[ownerKey];
-                                if (Array.isArray(array)) {
-                                    contextToUse = array[idx]; // the item itself
-                                }
-                            }
+                            const contextToUse = rowInfo ? rowInfo.item : el.$state;
 
                             const finalTarget = handlerName.includes('.') ? target : el;
 

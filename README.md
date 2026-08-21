@@ -79,12 +79,14 @@ import 'jsribbon';
 - **class** — Bind CSS classes
 - **attr** — Bind HTML attributes
 - **click** — Handle click events
-- **submit & ajax** — Handle form submission
-- **foreach** — Render list items
-- **context** — define context of component for composition
+- **foreach** — Render list items, hydrated in place from server-rendered rows
 - **Checkbox & radio** — Multi-value form controls
 - **Reactive arrays** — Auto-update on mutations
 - **Automatic hydration** — MutationObserver for dynamic content
+
+jsRibbon intentionally does not ship a bespoke AJAX form helper — pair it with
+[HTMX](https://htmx.org/) for AJAX form submission. Any HTML HTMX injects is
+auto-hydrated by jsRibbon's MutationObserver, no extra wiring needed.
 
 See full binding reference in the [documentation](https://jsribbon.raheelshan.com/).
 

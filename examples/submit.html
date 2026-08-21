@@ -2,8 +2,6 @@
     <head>
     
     </head>
-    <script src="./jsRibbon-enhance-form.js"></script>
-    <script src="./jsRibbon-component-state.js"></script>
     <script src="./jsRibbon.js"></script>
 
     <script>
@@ -12,22 +10,17 @@
     </script>
     <body>
         <div id="container">
-            Form Ajax Submit
+            <!-- jsRibbon has no bespoke AJAX form helper — for AJAX form submission, use
+                 HTMX (hx-post/hx-target/hx-swap). Any HTML HTMX injects is auto-hydrated
+                 by jsRibbon's MutationObserver, no extra wiring needed. -->
+            Form Default Submit
             <hr>
             <div data-bind="component:FormCheck">
-                <form method="post" action="/api/products/save" data-bind="submit:ajax, swap: innerHTML" id="formCheck">
+                <form method="post" action="/api/products/save" id="formCheck">
                     <input type="text" name="name" id="">
                     <button type="submit">Submit</button>
                 </form>
-            </div>  
-            Form Default Submit       
-            <hr>
-            <div data-bind="component:FormCheck">
-                <form method="post" action="/api/products/save" data-bind="submit:default, swap: innerHTML" id="formCheck">
-                    <input type="text" name="name" id="">
-                    <button type="submit">Submit</button>
-                </form>
-            </div>                  
+            </div>
         </div>
     </body>
 </html>
