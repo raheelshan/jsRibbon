@@ -96,7 +96,12 @@ Two IIFEs, all in one file:
      over the item — so it stays correct even if that row's DOM node later
      gets reused for a different item after a `splice`/`shift`. Named-handler
      events (`click`, `mouseenter`, etc.) already worked inside rows before
-     this, via the same event-time resolution.
+     this, via the same event-time resolution. `resolveForeachRow` also
+     walks up the ancestor-component chain (not just the local component's
+     own `$state`) to find whichever component actually owns the array —
+     needed for a dotted (cross-component) `foreach`, e.g. a child
+     component doing `foreach:[data:parent.items, as:item]`, where the
+     row-reactive array lives on the ancestor's state, not the child's.
    - Uses its own simpler parser: `parseBindings`/`processBinding`/
      `splitBindings`/`parseKeyValue`.
    - AJAX form submission is intentionally **not** implemented here — use
@@ -108,7 +113,14 @@ Two IIFEs, all in one file:
    - `registerComponent(el)` initializes state (calls into
      `window.jsRibbonState.init`), calls the registered factory
      `jsRibbon.component(name, fn)` to get `$ctx`, installs one delegated
-     listener per supported DOM event on the component root.
+     listener per supported DOM event on the component root. Nested
+     components each install their own listener, so a click inside a child
+     component also bubbles to every ancestor component's listener — each
+     delegated listener checks that the clicked element's *nearest*
+     enclosing component is itself before acting, otherwise a dotted
+     handler (which resolves to the same target function regardless of
+     which ancestor's listener runs it) would fire once per ancestor level
+     instead of once.
    - `MutationObserver` on `document.body` drives auto (un)registration of
      injected/removed `[data-bind]` subtrees (`autoRegister`, default true).
    - `hardFail` (default false) + `componentMarkupRegistry` enforce that all
