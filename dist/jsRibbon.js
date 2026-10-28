@@ -638,9 +638,16 @@
         return { children, template };
     }
 
+    // Lets applyForeach tell whether the array currently in state is already
+    // wired to its element (in-place mutation) or was replaced by reassignment.
+    const FOREACH_ELS = Symbol('foreachEls');
+
     function getForeachProxy(el, arr, alias, template, finalKey, targetState) {
         return new Proxy(arr, {
             get(target, prop, receiver) {
+                if (prop === FOREACH_ELS) {
+                    return [el, ...(Reflect.get(target, FOREACH_ELS) || [])];
+                }
                 if (['push', 'splice', 'shift', 'unshift', 'pop', 'sort', 'reverse'].includes(prop)) {
                     return function (...args) {
                         const result = Array.prototype[prop].apply(target, args);
@@ -1166,7 +1173,7 @@
         }
     }
 
-    function applyForeach(el, type, state, data) {
+    function applyForeach(el, type, state, data, subscribe) {
         if (!(type === 'foreach')) {
             return;
         }
@@ -1180,10 +1187,26 @@
                 return;
             }
             state = resolved.state;
+            subscribe = resolved.subscribe;
             finalKey = resolved.key; // e.g. "users"
         }
 
         renderForeach(el, targetState[finalKey], alias, template, originalKey, state);
+
+        // Mutations (push/splice/...) re-render through the foreach proxy itself,
+        // but reassigning the key (state.items = [...]) swaps that proxy out, so
+        // re-wrap whatever is now in state and re-render. Reads state[finalKey]
+        // rather than the callback value since another foreach on the same key
+        // may have re-wrapped it already during this same notification.
+        subscribe(finalKey, () => {
+            const current = state[finalKey];
+            const wiredEls = current ? current[FOREACH_ELS] : null;
+            if (wiredEls && wiredEls.includes(el)) return;
+
+            const arr = Array.isArray(current) ? current : [];
+            state[finalKey] = getForeachProxy(el, arr, alias, template, finalKey, state);
+            renderForeach(el, state[finalKey], alias, template, originalKey, state);
+        });
     }
 
     function initializeStateBindings(componentEl) {
@@ -1250,7 +1273,7 @@
                 applyHtml(el, key, type, state, subscribe)
                 applyClass(el, key, type, state, subscribe)
                 applyAttribute(el, key, type, state, subscribe)
-                applyForeach(el, type, state, data)
+                applyForeach(el, type, state, data, subscribe)
             });
         });
     }
@@ -1454,8 +1477,18 @@
 
         const ownerKey = row.getAttribute('data-foreach-owner');
         const idx = parseInt(row.getAttribute('data-key'), 10);
-        const array = el.$state[ownerKey];
-        if (!Array.isArray(array)) return null;
+
+        // The array normally lives on el's own state, but a dotted (cross-
+        // component) foreach binds it on an ancestor's state instead — walk
+        // up until we find whichever component actually owns it.
+        let owner = el;
+        while (owner && !Array.isArray(owner.$state && owner.$state[ownerKey])) {
+            const ancestor = owner.parentElement;
+            owner = ancestor ? ancestor.closest('[data-bind*="component:"]') : null;
+        }
+        if (!owner) return null;
+
+        const array = owner.$state[ownerKey];
 
         return {
             row,
@@ -1609,6 +1642,16 @@
                         el.addEventListener(evt, e => {
                             const target = e.target.closest('[data-bind]');
                             if (!target || !el.contains(target)) return;
+
+                            // If target sits inside a more deeply-nested component (e.g. a
+                            // dotted handler on a child component's own field), let that
+                            // component's own delegated listener handle it instead — every
+                            // ancestor component also has one of these listeners, and a
+                            // dotted handler resolves to the same function regardless of
+                            // which ancestor's listener runs it, so without this guard every
+                            // level in between would independently invoke it too.
+                            const owningComponent = target.closest('[data-bind*="component:"]');
+                            if (owningComponent !== el) return;
 
                             // Parse binding string on the element
                             const bindInfo = window.jsRibbonState.parseBindings(target.getAttribute('data-bind') || '');
