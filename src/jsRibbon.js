@@ -689,28 +689,48 @@
         });
     }
 
-    function getParsedForeachArray(children, state) {
+    // "item.name" with alias "item" → "name"; plain "name" stays as is
+    function rowFieldKey(alias, bKey) {
+        return alias && bKey.startsWith(alias + '.') ? bKey.slice(alias.length + 1) : bKey;
+    }
+
+    function getParsedForeachArray(children, state, alias) {
         let arr = Array.isArray(state) ? state : null;
 
         if (!arr) {
             // parse existing DOM children into plain array
             const parsedArray = children.map(child => {
                 const obj = {};
-                const deepBindables = child.querySelectorAll('[data-bind]');
+                let primitive, isPrimitive = false;
+
+                // the row element itself can carry a binding too (<li data-bind="text:name">)
+                const deepBindables = [child, ...child.querySelectorAll('[data-bind]')]
+                    .filter(b => b.hasAttribute('data-bind'));
+
                 deepBindables.forEach(bindable => {
                     const bindInfo = parseBindings(bindable.getAttribute('data-bind'));
                     for (let [bType, bKey] of Object.entries(bindInfo)) {
+                        let val;
                         if (bType === 'text') {
-                            obj[bKey] = bindable.textContent.trim();
-                        }
-                        if (bType === 'value' && bindable instanceof HTMLInputElement) {
-                            obj[bKey] = bindable.type === 'checkbox'
+                            val = bindable.textContent.trim();
+                        } else if (bType === 'value' && bindable instanceof HTMLInputElement) {
+                            val = bindable.type === 'checkbox'
                                 ? bindable.checked
                                 : bindable.value;
+                        } else {
+                            continue;
+                        }
+
+                        // bare alias (text:fruit) means the row's item is the value itself
+                        if (alias && bKey === alias) {
+                            primitive = val;
+                            isPrimitive = true;
+                        } else {
+                            obj[rowFieldKey(alias, bKey)] = val;
                         }
                     }
                 });
-                return obj;
+                return isPrimitive ? primitive : obj;
             });
 
             arr = parsedArray;
@@ -732,7 +752,7 @@
         let { children, template } = getForeachMarkup(el, finalKey);
 
         // 4) If parent state already has an array, use it; otherwise parse DOM and set it
-        let arr = getParsedForeachArray(children, targetState[finalKey]);
+        let arr = getParsedForeachArray(children, targetState[finalKey], alias);
 
         // 5) wrap the array with a Proxy that re-renders after mutating operations and store proxied array back into the authoritative state (parent or local)
         targetState[finalKey] = getForeachProxy(el, arr, alias, template, finalKey, targetState);
@@ -1308,7 +1328,8 @@
         init: initializeStateBindings,
         parseBindings,
         resolveMethod,
-        bindRowFields
+        bindRowFields,
+        rowFieldKey
     };
 })();
 
@@ -1539,13 +1560,14 @@
 
     function writeForeachRowValue(rowInfo, target, key, evt) {
         const { item, row, alias } = rowInfo;
+        let val;
 
         if (target.type === 'checkbox') {
-            item[key] = target.checked;
+            val = target.checked;
         } else if (target.type === 'number') {
             const min = target.hasAttribute('min') ? parseFloat(target.getAttribute('min')) : null;
             const max = target.hasAttribute('max') ? parseFloat(target.getAttribute('max')) : null;
-            let val = parseFloat(target.value);
+            val = parseFloat(target.value);
             if (!isNaN(val)) {
                 // Only clamp once the user is done (change), not mid-typing
                 if (evt !== 'input') {
@@ -1555,10 +1577,18 @@
             } else {
                 val = '';
             }
-            item[key] = val;
         } else {
-            item[key] = target.value;
+            val = target.value;
         }
+
+        // Bare alias (value:fruit) on a primitive row replaces the array slot;
+        // going through the array proxy re-renders that row.
+        if (alias && key === alias) {
+            rowInfo.array[rowInfo.idx] = val;
+            return;
+        }
+
+        item[window.jsRibbonState.rowFieldKey(alias, key)] = val;
 
         // Re-sync the rest of this row's bindings (e.g. a text: display of the
         // same field) — scoped to this one row, not a full list re-render.
