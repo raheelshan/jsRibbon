@@ -32,7 +32,7 @@ Full documentation is available here:
 ### CDN (jsDelivr)
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/raheelshan/jsRibbon@v1.0.0/dist/jsRibbon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/raheelshan/jsRibbon@v1.0.1/dist/jsRibbon.min.js"></script>
 ```
 
 ### Latest version:
