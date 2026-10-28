@@ -1,6 +1,6 @@
 {
   "name": "jsribbon",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A minimal DOM-first reactive UI library",
   "main": "dist/jsRibbon.js",
   "scripts": {

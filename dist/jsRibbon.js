@@ -329,7 +329,17 @@
 
             while (parent) {
                 if (parent.$state && parent.getAttribute('data-bind')?.includes(`component:${parentContext}`)) {
-                    return { state: parent.$state, subscribe: parent.$subscribe, key: binding };
+                    // A subscription on an ancestor outlives this component unless
+                    // removed, so record it on the component that owns the binding;
+                    // unregisterComponent runs these when it's swapped out.
+                    const owner = componentEl.closest('[data-bind*="component:"]');
+                    const ancestor = parent;
+                    const subscribe = (key, fn) => {
+                        const off = ancestor.$subscribe(key, fn);
+                        if (owner) (owner.$cleanup = owner.$cleanup || []).push(off);
+                        return off;
+                    };
+                    return { state: parent.$state, subscribe, key: binding };
                 }
                 parent = parent.parentElement;
             }
@@ -391,12 +401,20 @@
         }
     }
 
+    // Marks an array already wrapped by wrapArray (value = the key it notifies)
+    const WRAPPED_KEY = Symbol('wrappedKey');
+
     function createReactiveState(initial) {
         const subscribers = {};
 
         function wrapArray(arr, propKey) {
+            // Re-assigning an already-wrapped array (state.items = state.items)
+            // would otherwise stack proxies and multiply notifications
+            if (arr[WRAPPED_KEY] === propKey) return arr;
+
             return new Proxy(arr, {
                 get(target, prop, receiver) {
+                    if (prop === WRAPPED_KEY) return propKey;
                     // Intercept mutating array methods
                     if (['push', 'splice', 'shift', 'unshift', 'pop', 'sort', 'reverse'].includes(prop)) {
                         return function (...args) {
@@ -439,13 +457,18 @@
         // Wrap existing arrays in `initial` so they’re reactive too
         for (const key in initial) {
             if (Array.isArray(initial[key])) {
-                proxy[key] = wrapArray(initial[key], key);
+                proxy[key] = initial[key]; // set trap does the wrapping
             }
         }
 
+        // Returns an unsubscribe function
         function subscribe(key, fn) {
             if (!subscribers[key]) subscribers[key] = [];
             subscribers[key].push(fn);
+            return () => {
+                const idx = subscribers[key].indexOf(fn);
+                if (idx !== -1) subscribers[key].splice(idx, 1);
+            };
         }
 
         return { state: proxy, subscribe };
@@ -550,6 +573,8 @@
             items = state[key];
             arrayKey = key; // so data-foreach-owner isn't "layout.users"
         }
+
+        if (!Array.isArray(items)) items = []; // e.g. state.items = null clears the list
 
         // Reuse existing row nodes by index instead of tearing everything down.
         // On the very first call, el.children ARE the original server-rendered
@@ -661,34 +686,6 @@
         return { children, template };
     }
 
-    // Lets applyForeach tell whether the array currently in state is already
-    // wired to its element (in-place mutation) or was replaced by reassignment.
-    const FOREACH_ELS = Symbol('foreachEls');
-
-    function getForeachProxy(el, arr, alias, template, finalKey, targetState) {
-        return new Proxy(arr, {
-            get(target, prop, receiver) {
-                if (prop === FOREACH_ELS) {
-                    return [el, ...(Reflect.get(target, FOREACH_ELS) || [])];
-                }
-                if (['push', 'splice', 'shift', 'unshift', 'pop', 'sort', 'reverse'].includes(prop)) {
-                    return function (...args) {
-                        const result = Array.prototype[prop].apply(target, args);
-                        // on mutation, re-render using finalKey and the authoritative state (targetState)
-                        renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState);
-                        return result;
-                    };
-                }
-                return Reflect.get(target, prop, receiver);
-            },
-            set(target, prop, value, receiver) {
-                const result = Reflect.set(target, prop, value, receiver);
-                renderForeach(el, targetState[finalKey], alias, template, finalKey, targetState);
-                return result;
-            }
-        });
-    }
-
     // "item.name" with alias "item" → "name"; plain "name" stays as is
     function rowFieldKey(alias, bKey) {
         return alias && bKey.startsWith(alias + '.') ? bKey.slice(alias.length + 1) : bKey;
@@ -754,8 +751,9 @@
         // 4) If parent state already has an array, use it; otherwise parse DOM and set it
         let arr = getParsedForeachArray(children, targetState[finalKey], alias);
 
-        // 5) wrap the array with a Proxy that re-renders after mutating operations and store proxied array back into the authoritative state (parent or local)
-        targetState[finalKey] = getForeachProxy(el, arr, alias, template, finalKey, targetState);
+        // 5) store it in the authoritative state (parent or local); the reactive
+        // state wraps arrays so mutations notify subscribers (see applyForeach)
+        if (targetState[finalKey] !== arr) targetState[finalKey] = arr;
 
         bindingsMap.push({
             el,
@@ -1239,18 +1237,9 @@
 
         renderForeach(el, targetState[finalKey], alias, template, originalKey, state);
 
-        // Mutations (push/splice/...) re-render through the foreach proxy itself,
-        // but reassigning the key (state.items = [...]) swaps that proxy out, so
-        // re-wrap whatever is now in state and re-render. Reads state[finalKey]
-        // rather than the callback value since another foreach on the same key
-        // may have re-wrapped it already during this same notification.
+        // Fires on mutations (push/splice/index set, via wrapArray) and on
+        // reassignment (state.items = [...]) alike
         subscribe(finalKey, () => {
-            const current = state[finalKey];
-            const wiredEls = current ? current[FOREACH_ELS] : null;
-            if (wiredEls && wiredEls.includes(el)) return;
-
-            const arr = Array.isArray(current) ? current : [];
-            state[finalKey] = getForeachProxy(el, arr, alias, template, finalKey, state);
             renderForeach(el, state[finalKey], alias, template, originalKey, state);
         });
     }
@@ -1818,6 +1807,13 @@
             componentKeys.delete(mapKey);
         }
 
+        // Drop subscriptions this component holds on ancestor components' state
+        // (its own state and listeners are garbage-collected along with it)
+        if (el.$cleanup) {
+            el.$cleanup.forEach(off => off());
+            el.$cleanup = [];
+        }
+
         initializedElements.delete(el);
     }
 
@@ -1855,6 +1851,8 @@
 
             for (const mutation of mutations) {
                 for (const node of mutation.removedNodes) {
+                    // Moved, not removed (detached and re-inserted in one batch)
+                    if (node.isConnected) continue;
                     scanAndUnregister(node);
                 }
             }

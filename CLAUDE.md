@@ -86,11 +86,18 @@ Two IIFEs, all in one file:
      than wiping and rebuilding the list on every render — including the
      very first render, so server-rendered rows are never torn down just to
      be recreated.
-   - The array in state is wrapped by `getForeachProxy`, whose traps call
-     `renderForeach` on mutation. Reassignment (`state.items = [...]`) swaps
-     that proxy out, so `applyForeach` also subscribes to the key and
-     re-wraps + re-renders; the `FOREACH_ELS` symbol on the proxy tells it
-     which elements are already wired (skip on plain mutations).
+   - `foreach` re-renders purely through `subscribe(key)`, like every other
+     binding: `createReactiveState`'s `wrapArray` notifies on array methods
+     and index sets, and the top-level `set` trap notifies on reassignment.
+     There is deliberately no foreach-specific array proxy: a dotted foreach
+     used to wrap the ancestor's array in a proxy closing over the child's
+     DOM, which stacked one layer per HTMX swap. `WRAPPED_KEY` stops
+     `wrapArray` double-wrapping an already-wrapped array.
+   - Subscriptions on an ancestor's state (anything resolved via
+     `resolvePath`) are recorded on the owning component's `$cleanup` and
+     removed in `unregisterComponent`. `subscribe()` returns an unsubscribe
+     function. The MutationObserver skips removed nodes that are still
+     connected (moved, not removed).
    - Row keys may carry the alias (`text:user.name`) or not (`text:name`);
      `rowFieldKey` strips it for both seeding (`getParsedForeachArray`) and
      writes (`writeForeachRowValue`). A bare alias (`text:fruit`) means the
@@ -170,11 +177,8 @@ the diff). Still open:
    `parseDataBind`); only the latter supports `as`/wildcards, and it's only
    used for the `component:` value. New binding syntax added to one won't
    automatically apply to the other.
-2. No listener/subscriber cleanup on `unregisterComponent`. A removed
-   component's own listeners/subscribers are garbage-collected with it, but
-   a child bound to an ancestor (`text:layout.x`) leaves its callback in the
-   ancestor's `subscribers[key]`, so it accumulates if a long-lived parent
-   has children swapped in repeatedly via HTMX.
+2. `reset()` re-scans the document without unregistering first, so bindings
+   on already-bound elements get duplicate listeners/subscriptions.
 3. No component lifecycle hooks (`onMount`/`onDestroy`), by decision: the
    factory already runs on mount, and HTMX's `htmx:beforeCleanupElement`
    covers teardown.
