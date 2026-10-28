@@ -64,7 +64,9 @@
                 if (el.type === 'checkbox') {
                     val = keyUsageCount[value] > 1 ? [] : !!el.checked;
                 } else if (el.type === 'radio') {
-                    if (el.checked) val = el.value;
+                    // defaultChecked = the server's checked attribute; live .checked may
+                    // already be cleared by a same-named radio elsewhere on the page
+                    if (el.defaultChecked) val = el.value;
 
                 } else if (el.type === 'number') {
                     const num = parseFloat(el.value);
@@ -77,7 +79,12 @@
                     initialState[value] = val;
                 }
 
-            } else {
+            } else if (el.type === 'radio') {
+                // Later radios in the group only win if they're the checked one
+                if (el.defaultChecked && !isInsideLoopOrWith(el)) {
+                    initialState[value] = el.value;
+                }
+            } else if (el.type !== 'checkbox') {
                 // If this key already came from a text binding but we have an input with value
                 // → override it according to your priority
                 if (el.value && el.value.trim()) {
@@ -225,9 +232,12 @@
             if (inputType === 'radio') {
                 const radioValue = el.value;
 
-                // 👇 Automatically scope name within the component
-                if (el.closest('[data-bind*="component:"]')) {
-                    const compEl = el.closest('[data-bind*="component:"]');
+                // 👇 Automatically scope name within the component, so repeated
+                // instances don't share one group. Radios inside a <form> keep their
+                // name since the browser already groups per form and the server
+                // expects the original name on submit.
+                const compEl = el.closest('[data-bind*="component:"]');
+                if (compEl && !el.form) {
                     const originalName = el.getAttribute('name') || key;
                     const scopedName = `${originalName}_${compEl.$id}`;
                     el.setAttribute('name', scopedName);
@@ -259,6 +269,12 @@
             const min = el.hasAttribute('min') ? parseFloat(el.getAttribute('min')) : null;
             const max = el.hasAttribute('max') ? parseFloat(el.getAttribute('max')) : null;
 
+            const clamp = val => {
+                if (min !== null && val < min) return min;
+                if (max !== null && val > max) return max;
+                return val;
+            };
+
             el.value = state[key];
 
             el.addEventListener(eventToUse, e => {
@@ -266,19 +282,24 @@
 
                 if (inputType === 'number') {
                     val = parseFloat(val);
-                    if (!isNaN(val)) {
-                        if (min !== null && val < min) val = min;
-                        if (max !== null && val > max) val = max;
-                    } else {
-                        val = '';
-                    }
+                    // Clamping mid-typing would snap "1" (on the way to "15") up to min
+                    val = isNaN(val) ? '' : (eventToUse === 'input' ? val : clamp(val));
                 }
 
                 state[key] = val;
             });
 
+            if (inputType === 'number' && eventToUse === 'input') {
+                el.addEventListener('change', () => {
+                    const val = parseFloat(el.value);
+                    if (!isNaN(val)) state[key] = clamp(val);
+                });
+            }
+
             subscribe(key, val => {
-                if (el.value !== val) el.value = val;
+                // "1." parses to 1; rewriting the field would eat the decimal point
+                if (inputType === 'number' && parseFloat(el.value) === val) return;
+                if (el.value !== String(val ?? '')) el.value = val ?? '';
             });
         }
     }
@@ -504,7 +525,9 @@
                 } else if (bType === 'value' && bindEl instanceof HTMLInputElement) {
                     if (bindEl.type === 'checkbox') {
                         bindEl.checked = !!value;
-                    } else if (bindEl.value !== (value ?? '')) {
+                    } else if (bindEl.type === 'number' && parseFloat(bindEl.value) === value) {
+                        // already shows this number (e.g. "1." mid-typing), leave it
+                    } else if (bindEl.value !== String(value ?? '')) {
                         bindEl.value = value ?? '';
                     }
                 }
@@ -1057,6 +1080,7 @@
                 let { refs: finalBindings, names: bindingNames } = extractBindings(bindings);
 
                 finalBindings.forEach((current, index) => {
+                    if (!current.includes('.')) return; // local keys are bound below
 
                     let result = resolvePath(el, current);
 
@@ -1090,7 +1114,8 @@
                 for (const pair of pairs) {
                     const [stateKey, className] = pair.split(/\s*=>\s*/); // ✅ swapped
 
-                    if (!stateKey || !className) continue;
+                    // dotted keys were already bound to the ancestor's state above
+                    if (!stateKey || !className || stateKey.includes('.')) continue;
 
                     // Apply initial state
                     el.classList.toggle(className, !!state[stateKey]);
@@ -1119,6 +1144,8 @@
                 let { refs: finalBindings, names: bindingNames } = extractBindings(bindings);
 
                 finalBindings.forEach((current, index) => {
+                    if (!current.includes('.')) return; // local keys are bound below
+
                     let result = resolvePath(el, current);
 
                     if (!result) {
@@ -1144,8 +1171,6 @@
                         console.warn('Invalid attr binding:', key);
                     }
                 })
-
-                return;
             }
 
             try {
@@ -1155,7 +1180,8 @@
                 for (const pair of pairs) {
                     const [stateKey, attrName] = pair.split(/\s*=>\s*/); // ✅ swapped
 
-                    if (!stateKey || !attrName) continue;
+                    // dotted keys were already bound to the ancestor's state above
+                    if (!stateKey || !attrName || stateKey.includes('.')) continue;
 
                     // Initial set
                     el.setAttribute(attrName, state[stateKey] ?? '');
@@ -1292,14 +1318,20 @@
     let componentKeys = new Set();           // Prevent duplicate by key
     let autoRegister = true;
     let hardFail = false; // ⬅️ hard fail stops everything
+    let instanceCounter = 0;
 
     const componentMarkupRegistry = new Map();
 
-    function normalizeMarkup(html) {
-        return html
-            .replace(/\s+/g, ' ')
-            .replace(/>\s+</g, '><')
-            .trim();
+    // Structure only (tags + data-bind), so instances rendered with different
+    // server data still match. A foreach contributes just its first row since
+    // row counts naturally differ between instances.
+    function markupSignature(el) {
+        const bind = el.getAttribute('data-bind');
+        let children = Array.from(el.children);
+        if (bind && /foreach\s*:/.test(bind)) children = children.slice(0, 1);
+        return el.tagName
+            + (bind ? `[${bind.replace(/\s+/g, '')}]` : '')
+            + '(' + children.map(markupSignature).join(',') + ')';
     }
 
     // ---------- jsRibbon binding parser (supports "as" for alias, "=>" for mapping) ----------
@@ -1505,7 +1537,7 @@
         return (target.type === 'checkbox' || target.type === 'radio') ? 'change' : 'input';
     }
 
-    function writeForeachRowValue(rowInfo, target, key) {
+    function writeForeachRowValue(rowInfo, target, key, evt) {
         const { item, row, alias } = rowInfo;
 
         if (target.type === 'checkbox') {
@@ -1515,8 +1547,11 @@
             const max = target.hasAttribute('max') ? parseFloat(target.getAttribute('max')) : null;
             let val = parseFloat(target.value);
             if (!isNaN(val)) {
-                if (min !== null && val < min) val = min;
-                if (max !== null && val > max) val = max;
+                // Only clamp once the user is done (change), not mid-typing
+                if (evt !== 'input') {
+                    if (min !== null && val < min) val = min;
+                    if (max !== null && val > max) val = max;
+                }
             } else {
                 val = '';
             }
@@ -1558,7 +1593,7 @@
 
         // 🧠 Check for markup consistency among same-named components
         if (type === 'ident' && name) {
-            const currentMarkup = normalizeMarkup(el.innerHTML);
+            const currentMarkup = Array.from(el.children).map(markupSignature).join(',');
             if (componentMarkupRegistry.has(name)) {
                 const storedMarkup = componentMarkupRegistry.get(name);
                 if (storedMarkup !== currentMarkup) {
@@ -1609,10 +1644,10 @@
         componentMap.get(name).push(el);
         initializedElements.add(el);
 
-        // if (!el.$id) {
-        //     el.$id = Math.random().toString(36).slice(2, 10);
-        //     el.setAttribute('data-comp-id', el.$id);
-        // }
+        // Unique per instance; used to scope radio group names
+        if (!el.$id) {
+            el.$id = ++instanceCounter;
+        }
 
         // ✅ 1. Initialize state
         // Initialize the state first
@@ -1638,9 +1673,17 @@
                         'keydown', 'keyup', 'keypress', 'input', 'change', 'focus', 'blur', 'contextmenu'
                     ];
 
+                    // These don't bubble, so they're caught on the way down (capture)
+                    // and only count when the bound element itself is the target,
+                    // otherwise mouseenter would re-fire for every child entered.
+                    const nonBubbling = ['mouseenter', 'mouseleave', 'focus', 'blur'];
+
                     supportedEvents.forEach(evt => {
+                        const capture = nonBubbling.includes(evt);
                         el.addEventListener(evt, e => {
-                            const target = e.target.closest('[data-bind]');
+                            const target = capture
+                                ? (e.target.hasAttribute?.('data-bind') ? e.target : null)
+                                : e.target.closest('[data-bind]');
                             if (!target || !el.contains(target)) return;
 
                             // If target sits inside a more deeply-nested component (e.g. a
@@ -1659,10 +1702,12 @@
                             // Editable value: binding inside a foreach row — resolved and
                             // written here (via data-key, at event time) rather than a
                             // per-row listener, so it stays correct after row reuse.
-                            if (bindInfo.value && resolveRowValueUpdateEvent(target, bindInfo) === evt) {
+                            const isRowValueEvent = resolveRowValueUpdateEvent(target, bindInfo) === evt
+                                || (evt === 'change' && target.type === 'number');
+                            if (bindInfo.value && isRowValueEvent) {
                                 const rowInfo = resolveForeachRow(el, target);
                                 if (rowInfo) {
-                                    writeForeachRowValue(rowInfo, target, bindInfo.value.trim());
+                                    writeForeachRowValue(rowInfo, target, bindInfo.value.trim(), evt);
                                     return;
                                 }
                             }
@@ -1702,7 +1747,7 @@
                             } catch (err) {
                                 console.error(`Error executing handler "${handlerName}":`, err);
                             }
-                        });
+                        }, capture);
                     });
                 }
 
@@ -1720,7 +1765,7 @@
         if (!initializedElements.has(el)) return;
 
         const info = getComponentInfo(el);
-        const name = info.component;
+        const name = info.component?.name;
         const key = el.getAttribute?.('data-key');
 
         if (!name) return;
