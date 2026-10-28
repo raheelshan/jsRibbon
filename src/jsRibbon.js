@@ -1,5 +1,13 @@
 (function () {
 
+    // Signal of the component currently being initialized (init is synchronous),
+    // so unregistering it can remove every listener its bindings added
+    let currentSignal;
+
+    function listen(el, evt, fn) {
+        el.addEventListener(evt, fn, currentSignal ? { signal: currentSignal } : undefined);
+    }
+
     function textBinding(bindings, bindingsMap, el, initialState) {
         let { text } = bindings;
 
@@ -172,7 +180,7 @@
 
                     el.checked = state[key].includes(checkboxValue);
 
-                    el.addEventListener(eventToUse, () => {
+                    listen(el, eventToUse, () => {
                         const current = new Set(state[key]);
 
                         if (el.checked) {
@@ -190,7 +198,7 @@
                 } else {
                     el.checked = !!state[key];
 
-                    el.addEventListener(eventToUse, () => {
+                    listen(el, eventToUse, () => {
                         state[key] = el.checked;
                     });
 
@@ -215,7 +223,7 @@
                 el.checked = state[key] === radioValue;
 
                 // When user selects a radio, update state
-                el.addEventListener(eventToUse, () => {
+                listen(el, eventToUse, () => {
                     if (el.checked) {
                         state[key] = radioValue;
                     }
@@ -238,7 +246,9 @@
                 // expects the original name on submit.
                 const compEl = el.closest('[data-bind*="component:"]');
                 if (compEl && !el.form) {
-                    const originalName = el.getAttribute('name') || key;
+                    // remembered so a re-init (reset) doesn't scope it twice
+                    el.$originalName = el.$originalName || el.getAttribute('name') || key;
+                    const originalName = el.$originalName;
                     const scopedName = `${originalName}_${compEl.$id}`;
                     el.setAttribute('name', scopedName);
                 }
@@ -252,7 +262,7 @@
                 el.checked = state[key] === radioValue;
 
                 // --- 3. When user changes ---
-                el.addEventListener(eventToUse, () => {
+                listen(el, eventToUse, () => {
                     if (el.checked) state[key] = radioValue;
                 });
 
@@ -277,7 +287,7 @@
 
             el.value = state[key];
 
-            el.addEventListener(eventToUse, e => {
+            listen(el, eventToUse, e => {
                 let val = e.target.value;
 
                 if (inputType === 'number') {
@@ -290,7 +300,7 @@
             });
 
             if (inputType === 'number' && eventToUse === 'input') {
-                el.addEventListener('change', () => {
+                listen(el, 'change', () => {
                     const val = parseFloat(el.value);
                     if (!isNaN(val)) state[key] = clamp(val);
                 });
@@ -654,7 +664,11 @@
 
         let template = null;
 
-        if (children && children.length > 0) {
+        if (el.$foreachTemplate) {
+            // Re-init (reset): the <template> is gone and rows may be empty or
+            // already rendered, so reuse the template captured the first time
+            template = el.$foreachTemplate.cloneNode(true);
+        } else if (children && children.length > 0) {
             let tag = children[0];
 
             if (tag.tagName === 'TEMPLATE') {
@@ -679,6 +693,8 @@
         } else {
             throw new Error(`Markup not found for foreach binding "${finalKey}"`);
         }
+
+        if (!el.$foreachTemplate) el.$foreachTemplate = template.cloneNode(true);
 
         // Refresh children, excluding <template>
         children = Array.from(el.children || []).filter(c => c.tagName !== 'TEMPLATE');
@@ -906,7 +922,7 @@
             setSelected(state[key]);
 
             // On change → update state
-            el.addEventListener(eventToUse, () => {
+            listen(el, eventToUse, () => {
                 if (el.multiple) {
                     const selected = Array.from(el.selectedOptions, o => o.value);
                     state[key] = selected;
@@ -939,7 +955,7 @@
 
             el.value = state[key];
 
-            el.addEventListener(eventToUse, e => {
+            listen(el, eventToUse, e => {
                 state[key] = e.target.value;
             });
 
@@ -961,10 +977,10 @@
             }
 
             // Update state when user focuses or blurs input
-            el.addEventListener('focus', () => {
+            listen(el, 'focus', () => {
                 state[key] = true;
             });
-            el.addEventListener('blur', () => {
+            listen(el, 'blur', () => {
                 state[key] = false;
             });
 
@@ -1052,7 +1068,7 @@
                 ({ state, subscribe, key } = resolvePath(el, key) || { state, subscribe, key });
             }
 
-            el.addEventListener('change', () => {
+            listen(el, 'change', () => {
                 const groupCheckboxes = componentEl.querySelectorAll(`input[type="checkbox"][data-bind*="value:${key}"]`);
                 const values = Array.from(groupCheckboxes).map(c => c.value);
                 state[key] = el.checked ? values : [];
@@ -1245,6 +1261,16 @@
     }
 
     function initializeStateBindings(componentEl) {
+        const previousSignal = currentSignal;
+        currentSignal = componentEl.$abort ? componentEl.$abort.signal : undefined;
+        try {
+            bindComponent(componentEl);
+        } finally {
+            currentSignal = previousSignal;
+        }
+    }
+
+    function bindComponent(componentEl) {
         const bindingsMap = [];
         const initialState = {};
         const keyUsageCount = {};
@@ -1668,6 +1694,10 @@
             el.$id = ++instanceCounter;
         }
 
+        // Every listener this instance adds is tied to this signal, so
+        // unregisterComponent can remove them all at once
+        el.$abort = new AbortController();
+
         // ✅ 1. Initialize state
         // Initialize the state first
         if (window.jsRibbonState?.init) {
@@ -1766,7 +1796,7 @@
                             } catch (err) {
                                 console.error(`Error executing handler "${handlerName}":`, err);
                             }
-                        }, capture);
+                        }, { capture, signal: el.$abort.signal });
                     });
                 }
 
@@ -1807,8 +1837,16 @@
             componentKeys.delete(mapKey);
         }
 
+        // Remove this instance's DOM listeners (bindings + delegated events), so
+        // re-registering the same element (reset) doesn't stack duplicates
+        if (el.$abort) {
+            el.$abort.abort();
+            el.$abort = null;
+            el._delegatedEventsInstalled = false;
+        }
+
         // Drop subscriptions this component holds on ancestor components' state
-        // (its own state and listeners are garbage-collected along with it)
+        // (its own state's subscribers go away with the state itself)
         if (el.$cleanup) {
             el.$cleanup.forEach(off => off());
             el.$cleanup = [];
@@ -1897,6 +1935,11 @@
         scanAndRegister,
         scanAndUnregister,
         reset() {
+            // Tear down every live instance first; otherwise the re-scan below
+            // binds the same elements again on top of their old listeners
+            for (const instances of [...componentMap.values()]) {
+                [...instances].forEach(unregisterComponent);
+            }
             componentMap.clear();
             componentKeys.clear();
             componentMarkupRegistry.clear();

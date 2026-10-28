@@ -98,6 +98,13 @@ Two IIFEs, all in one file:
      removed in `unregisterComponent`. `subscribe()` returns an unsubscribe
      function. The MutationObserver skips removed nodes that are still
      connected (moved, not removed).
+   - Every DOM listener a component adds (binding-engine `listen()` calls
+     and the delegated events) is tied to that instance's `el.$abort`
+     AbortController, aborted in `unregisterComponent`. `reset()`
+     unregisters every instance before re-scanning, and a foreach keeps its
+     original template on `el.$foreachTemplate` (and a radio its original
+     name on `el.$originalName`) so a re-init doesn't depend on DOM the
+     first init already changed.
    - Row keys may carry the alias (`text:user.name`) or not (`text:name`);
      `rowFieldKey` strips it for both seeding (`getParsedForeachArray`) and
      writes (`writeForeachRowValue`). A bare alias (`text:fruit`) means the
@@ -177,28 +184,26 @@ the diff). Still open:
    `parseDataBind`); only the latter supports `as`/wildcards, and it's only
    used for the `component:` value. New binding syntax added to one won't
    automatically apply to the other.
-2. `reset()` re-scans the document without unregistering first, so bindings
-   on already-bound elements get duplicate listeners/subscriptions.
-3. No component lifecycle hooks (`onMount`/`onDestroy`), by decision: the
+2. No component lifecycle hooks (`onMount`/`onDestroy`), by decision: the
    factory already runs on mount, and HTMX's `htmx:beforeCleanupElement`
    covers teardown.
-4. `<select multiple>` inside a `foreach` row, if ever bound with `value:`,
+3. `<select multiple>` inside a `foreach` row, if ever bound with `value:`,
    only picks up the first selected option (`target.value`) — the top-level
    `applySelect`'s multi-select handling (`selectedOptions`) isn't mirrored
    in `writeForeachRowValue`. Single-select and `<textarea>` inside rows
    work fine.
-5. No automated tests; `examples/*.html` are manual/console-driven only.
+4. No automated tests; `examples/*.html` are manual/console-driven only.
    Headless Chrome works for scripted checks: a page that runs assertions
    and writes them into the DOM, read back with
    `chrome --headless=new --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file:///...`. If
    you touch `renderForeach`/`bindRowFields`/`resolvePath`/the two parsers,
    manually exercise the relevant `examples/*.html` file(s) in a browser —
    there's no regression net yet.
-6. Global, unscoped module state (`componentMap`/`componentKeys`/
+5. Global, unscoped module state (`componentMap`/`componentKeys`/
    `componentMarkupRegistry`/`initializedElements`) — fine for one page/one
    app, but no story for multiple independent jsRibbon instances on one page
    beyond `reset()`.
-7. Mutating a field on a foreach item (`state.items[0].name = 'x'`) does not
+6. Mutating a field on a foreach item (`state.items[0].name = 'x'`) does not
    re-render; items are plain objects. Replacing the item
    (`state.items[0] = {...}`) or any array method does.
 
