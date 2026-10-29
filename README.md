@@ -90,6 +90,32 @@ auto-hydrated by jsRibbon's MutationObserver, no extra wiring needed.
 
 See full binding reference in the [documentation](https://jsribbon.raheelshan.com/).
 
+## Lifecycle hooks
+
+The factory runs when a component is set up. For anything that needs its child
+components ready, or needs stopping when the component's HTML goes away, return
+`onMount` and `onDestroy` (both optional, `this` is `$state`):
+
+```javascript
+jsRibbon.component('Clock', ($state) => {
+  let timer;
+  return {
+    onMount() { timer = setInterval(() => $state.now = new Date().toLocaleTimeString(), 1000); },
+    onDestroy() { clearInterval(timer); }
+  };
+});
+```
+
+- `onMount` runs after the component and every component nested inside it
+  are set up, on page load and for injected HTML (e.g. an HTMX swap) alike.
+- `onDestroy` runs when the component's element is removed from the page,
+  before its bindings are torn down, so state is still readable. Moving an
+  element elsewhere on the page doesn't count as removal.
+- `jsRibbon.reset()` runs `onDestroy` then `onMount` again for every component.
+
+Including the script twice on one page is harmless: the second copy logs a
+warning and does nothing.
+
 ## foreach
 
 Server-rendered rows are the template and the initial data. jsRibbon reads

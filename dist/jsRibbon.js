@@ -1,4 +1,6 @@
 (function () {
+    // Already loaded: the component registry below warns and bails out too
+    if (window.jsRibbonState) return;
 
     // Signal of the component currently being initialized (init is synchronous),
     // so unregistering it can remove every listener its bindings added
@@ -1419,14 +1421,35 @@
 })();
 
 (function () {
+    // Script included twice (e.g. a layout and a partial): keep the first copy,
+    // a second registry would replace window.jsRibbon and drop its components
+    if (window.jsRibbon) {
+        console.warn('jsRibbon loaded more than once; using the first copy.');
+        return;
+    }
+
     let componentMap = new Map();            // { Counter: [el1, el2] }
     let initializedElements = new WeakSet(); // Track registered elements
     let componentKeys = new Set();           // Prevent duplicate by key
     let autoRegister = true;
     let hardFail = false; // ⬅️ hard fail stops everything
     let instanceCounter = 0;
+    // Registered during the current scan; their onMount runs once it ends
+    const pendingMounts = [];
 
     const componentMarkupRegistry = new Map();
+
+    // Runs ctx.onMount / ctx.onDestroy with this = $state; a throwing hook is
+    // logged so it can't break the rest of the scan or teardown
+    function callHook(el, hook) {
+        const fn = el.$ctx && el.$ctx[hook];
+        if (typeof fn !== 'function') return;
+        try {
+            fn.call(el.$state);
+        } catch (err) {
+            console.error(`Error in ${hook} of "${getComponentInfo(el).component}":`, err);
+        }
+    }
 
     // Structure only (tags + data-bind), so instances rendered with different
     // server data still match. A foreach contributes just its first row since
@@ -1627,6 +1650,7 @@
             try {
                 const ctx = def(el.$state, el) || {};
                 el.$ctx = ctx;
+                pendingMounts.push(el);
 
                 // install delegated event handling once per component
                 if (!el._delegatedEventsInstalled) {
@@ -1735,6 +1759,9 @@
 
         if (!name) return;
 
+        // Before teardown, so the hook can still read state
+        callHook(el, 'onDestroy');
+
         const instances = componentMap.get(name);
         if (instances) {
             const index = instances.indexOf(el);
@@ -1780,6 +1807,9 @@
 
         const all = root.querySelectorAll?.('[data-bind]') || [];
         all.forEach(el => registerComponent(el));
+
+        // After the whole subtree is registered, so onMount sees its children ready
+        pendingMounts.splice(0).forEach(el => callHook(el, 'onMount'));
     }
 
     function scanAndUnregister(root) {

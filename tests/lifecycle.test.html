@@ -1,0 +1,120 @@
+<html>
+<head>
+<script>
+    window.logs = [];
+    for (const lvl of ['warn', 'error']) {
+        const orig = console[lvl];
+        console[lvl] = (...a) => { logs.push(lvl + ': ' + a.filter(x => typeof x === 'string').join(' ')); orig.apply(console, a); };
+    }
+    window.addEventListener('error', e => logs.push('uncaught: ' + e.message));
+</script>
+<script src="../src/jsRibbon.js"></script>
+<script>
+    window.events = [];
+    jsRibbon.component('Parent', ($state, el) => ({
+        onMount() {
+            const child = el.querySelector('[data-bind*="component:Child"]');
+            events.push('mount Parent this=' + (this === $state) + ' childReady=' + !!(child && child.$state) + ' title=' + this.title);
+        },
+        onDestroy() {
+            events.push('destroy Parent title=' + this.title);
+        }
+    }));
+    jsRibbon.component('Child', () => ({
+        onMount() { events.push('mount Child'); },
+        onDestroy() { events.push('destroy Child'); }
+    }));
+    jsRibbon.component('Clock', ($state) => {
+        let timer;
+        return {
+            onMount() { timer = setInterval(() => $state.ticks++, 10); },
+            onDestroy() { clearInterval(timer); events.push('clock stopped'); }
+        };
+    });
+    jsRibbon.component('Broken', () => ({
+        onMount() { throw new Error('boom'); }
+    }));
+    jsRibbon.component('Plain', () => ({}));
+</script>
+</head>
+<body>
+<div id="parent" data-bind="component:Parent">
+    <span data-bind="text:title">Home</span>
+    <div data-bind="component:Child"><span data-bind="text:x">1</span></div>
+</div>
+<div id="clock" data-bind="component:Clock"><input type="number" data-bind="value:ticks" value="0"></div>
+<div id="broken" data-bind="component:Broken"><span data-bind="text:y">1</span></div>
+<div id="plain" data-bind="component:Plain"><span data-bind="text:z">1</span></div>
+<div id="slot"></div>
+<div id="moveTarget"></div>
+
+<pre id="out"></pre>
+<script>
+    const out = [];
+    const check = (label, actual, expected) => {
+        const ok = JSON.stringify(actual) === JSON.stringify(expected);
+        out.push((ok ? 'PASS ' : 'FAIL ') + label + ' => ' + JSON.stringify(actual) + (ok ? '' : ' expected ' + JSON.stringify(expected)));
+    };
+    const tick = ms => new Promise(r => setTimeout(r, ms));
+
+    window.addEventListener('load', async () => {
+        try {
+            await tick(30);
+            check('onMount after children registered, this is $state', events.slice(0, 2), [
+                'mount Parent this=true childReady=true title=Home',
+                'mount Child'
+            ]);
+            check('onMount error is caught and logged', logs.filter(l => /onMount/.test(l) && /Broken/.test(l)).length, 1);
+            check('a throwing onMount does not stop later components', document.getElementById('plain').$state.z, '1');
+
+            const clock = document.getElementById('clock');
+            await tick(60);
+            check('onMount started the timer', clock.$state.ticks > 0, true);
+
+            events.length = 0;
+            clock.remove();
+            await tick(20);
+            const after = clock.$state.ticks;
+            await tick(60);
+            check('onDestroy runs on removal', events, ['clock stopped']);
+            check('timer stopped by onDestroy', clock.$state.ticks, after);
+
+            events.length = 0;
+            document.getElementById('slot').innerHTML =
+                '<div id="inj" data-bind="component:Parent"><span data-bind="text:title">Injected</span>' +
+                '<div data-bind="component:Child"><span data-bind="text:x">1</span></div></div>';
+            await tick(20);
+            check('injected HTML gets onMount', events, ['mount Parent this=true childReady=true title=Injected', 'mount Child']);
+
+            events.length = 0;
+            const inj = document.getElementById('inj');
+            document.getElementById('moveTarget').appendChild(inj);
+            await tick(20);
+            check('moving a component does not destroy/remount it', events, []);
+
+            events.length = 0;
+            inj.$state.title = 'Changed';
+            inj.remove();
+            await tick(20);
+            check('onDestroy can still read state, children destroyed too', events, ['destroy Parent title=Changed', 'destroy Child']);
+
+            events.length = 0;
+            jsRibbon.reset();
+            check('reset destroys then remounts', events, [
+                'destroy Parent title=Home', 'destroy Child',
+                'mount Parent this=true childReady=true title=Home', 'mount Child'
+            ]);
+
+            events.length = 0;
+            jsRibbon.scanAndRegister(document);
+            check('re-scanning registered components does not remount', events, []);
+
+            check('no other warnings/errors', logs.filter(l => !/onMount/.test(l)), []);
+        } catch (e) {
+            out.push('ERROR ' + e.stack);
+        }
+        document.getElementById('out').textContent = out.join('\n');
+    });
+</script>
+</body>
+</html>

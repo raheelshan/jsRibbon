@@ -171,6 +171,16 @@ Two IIFEs, all in one file:
    - Reads `component:`/`parent:` through the binding engine's
      `parseBindings` (`getComponentInfo`); there is no second parser.
      `component:` must be a plain identifier.
+   - Lifecycle: the factory's returned `$ctx` may have `onMount`/`onDestroy`
+     (`callHook`, `this` = `$state`, errors logged not thrown).
+     `registerComponent` queues the instance on `pendingMounts`;
+     `scanAndRegister` flushes the queue after registering its whole subtree,
+     so `onMount` sees nested components ready. `unregisterComponent` calls
+     `onDestroy` first, before listeners/subscriptions are removed.
+   - Both IIFEs bail out if the script already ran (`window.jsRibbonState` /
+     `window.jsRibbon` exist), so including it twice keeps the first copy
+     instead of replacing `window.jsRibbon` and losing registered components.
+     Module state (`componentMap` etc.) is page-global: one jsRibbon per page.
 
 ## `data-bind` syntax quick reference
 
@@ -196,15 +206,9 @@ use HTMX for AJAX forms; a plain `<form>` with no `data-bind` submits natively.
 
 Found by close reading against the stated project philosophy; fixed items
 removed from this list as of the 2026-08-21 cleanup pass (see git history for
-the diff). Still open:
-
-1. No component lifecycle hooks (`onMount`/`onDestroy`), by decision: the
-   factory already runs on mount, and HTMX's `htmx:beforeCleanupElement`
-   covers teardown.
-2. Global, unscoped module state (`componentMap`/`componentKeys`/
-   `componentMarkupRegistry`/`initializedElements`) — fine for one page/one
-   app, but no story for multiple independent jsRibbon instances on one page
-   beyond `reset()`.
+the diff). Nothing open. Decided against: isolated jsRibbon instances on one
+page (module state stays page-global; the double-load guard covers the real
+case of the script being included twice).
 
 ## Conventions observed in this repo
 
