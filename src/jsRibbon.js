@@ -563,6 +563,13 @@
                     } else if (bindEl.value !== String(value ?? '')) {
                         bindEl.value = value ?? '';
                     }
+                } else if (bType === 'value' && bindEl instanceof HTMLSelectElement && bindEl.multiple) {
+                    const values = Array.isArray(value) ? value.map(String) : [];
+                    for (const option of bindEl.options) {
+                        option.selected = values.includes(option.value);
+                    }
+                } else if (bType === 'value' && (bindEl instanceof HTMLSelectElement || bindEl instanceof HTMLTextAreaElement)) {
+                    if (bindEl.value !== String(value ?? '')) bindEl.value = value ?? '';
                 }
             }
         });
@@ -730,6 +737,10 @@
                             val = bindable.type === 'checkbox'
                                 ? bindable.checked
                                 : bindable.value;
+                        } else if (bType === 'value' && bindable instanceof HTMLSelectElement && bindable.multiple) {
+                            val = Array.from(bindable.selectedOptions, o => o.value);
+                        } else if (bType === 'value' && (bindable instanceof HTMLSelectElement || bindable instanceof HTMLTextAreaElement)) {
+                            val = bindable.value;
                         } else {
                             continue;
                         }
@@ -1570,7 +1581,8 @@
     function resolveRowValueUpdateEvent(target, bindInfo) {
         if (!bindInfo.value) return null;
         if (bindInfo.update) return bindInfo.update.trim();
-        return (target.type === 'checkbox' || target.type === 'radio') ? 'change' : 'input';
+        // selects use change, same as the top-level applySelect
+        return (target.type === 'checkbox' || target.type === 'radio' || target instanceof HTMLSelectElement) ? 'change' : 'input';
     }
 
     function writeForeachRowValue(rowInfo, target, key, evt) {
@@ -1579,6 +1591,8 @@
 
         if (target.type === 'checkbox') {
             val = target.checked;
+        } else if (target instanceof HTMLSelectElement && target.multiple) {
+            val = Array.from(target.selectedOptions, o => o.value);
         } else if (target.type === 'number') {
             const min = target.hasAttribute('min') ? parseFloat(target.getAttribute('min')) : null;
             const max = target.hasAttribute('max') ? parseFloat(target.getAttribute('max')) : null;

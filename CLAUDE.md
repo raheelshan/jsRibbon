@@ -110,7 +110,8 @@ Two IIFEs, all in one file:
      writes (`writeForeachRowValue`). A bare alias (`text:fruit`) means the
      row item is a primitive. The row element itself may carry a binding.
    - Row bindings support the full static vocabulary (`text`/`html`/
-     `visible`/`class`/`attr`/`readonly`/`disabled`/checkbox `value`) via
+     `visible`/`class`/`attr`/`readonly`/`disabled`/`value` on inputs, checkboxes,
+     `<select>` incl. `multiple` (an array), `<textarea>`) via
      `bindRowFields`, re-run on that one row whenever it changes. Editable
      `value:` inputs inside rows are two-way: writes go through the
      delegated-event system (`resolveForeachRow`/`writeForeachRowValue` in
@@ -187,23 +188,18 @@ the diff). Still open:
 2. No component lifecycle hooks (`onMount`/`onDestroy`), by decision: the
    factory already runs on mount, and HTMX's `htmx:beforeCleanupElement`
    covers teardown.
-3. `<select multiple>` inside a `foreach` row, if ever bound with `value:`,
-   only picks up the first selected option (`target.value`) — the top-level
-   `applySelect`'s multi-select handling (`selectedOptions`) isn't mirrored
-   in `writeForeachRowValue`. Single-select and `<textarea>` inside rows
-   work fine.
-4. No automated tests; `examples/*.html` are manual/console-driven only.
+3. No automated tests; `examples/*.html` are manual/console-driven only.
    Headless Chrome works for scripted checks: a page that runs assertions
    and writes them into the DOM, read back with
    `chrome --headless=new --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file:///...`. If
    you touch `renderForeach`/`bindRowFields`/`resolvePath`/the two parsers,
    manually exercise the relevant `examples/*.html` file(s) in a browser —
    there's no regression net yet.
-5. Global, unscoped module state (`componentMap`/`componentKeys`/
+4. Global, unscoped module state (`componentMap`/`componentKeys`/
    `componentMarkupRegistry`/`initializedElements`) — fine for one page/one
    app, but no story for multiple independent jsRibbon instances on one page
    beyond `reset()`.
-6. Mutating a field on a foreach item (`state.items[0].name = 'x'`) does not
+5. Mutating a field on a foreach item (`state.items[0].name = 'x'`) does not
    re-render; items are plain objects. Replacing the item
    (`state.items[0] = {...}`) or any array method does.
 
