@@ -1,0 +1,146 @@
+<html>
+<head>
+<script>
+    window.logs = [];
+    for (const lvl of ['warn', 'error']) {
+        const orig = console[lvl];
+        console[lvl] = (...a) => { logs.push(lvl + ': ' + a.filter(x => typeof x === 'string').join(' ')); orig.apply(console, a); };
+    }
+    window.addEventListener('error', e => logs.push('uncaught: ' + e.message));
+</script>
+<script src="../src/jsRibbon.js"></script>
+<script>
+    window.hits = { focus: 0, blur: 0, enter: 0, leave: 0 };
+    jsRibbon.component('Gender', () => ({}));
+    jsRibbon.component('FormG', () => ({}));
+    jsRibbon.component('Ev', () => ({
+        onFocus() { hits.focus++; }, onBlur() { hits.blur++; },
+        onEnter() { hits.enter++; }, onLeave() { hits.leave++; }
+    }));
+    jsRibbon.component('Cart', () => ({}));
+    jsRibbon.component('Counter', () => ({}));
+    jsRibbon.component('Drift', () => ({}));
+    jsRibbon.component('Rows', () => ({}));
+    jsRibbon.component('Layout', () => ({}));
+    jsRibbon.component('Kid', () => ({}));
+    jsRibbon.component('Num', () => ({}));
+    jsRibbon.component('RowNum', () => ({}));
+</script>
+</head>
+<body>
+<div id="g1" data-bind="component:Gender">
+    <input type="radio" name="gender" value="male" data-bind="value:gender" checked>
+    <input type="radio" name="gender" value="female" data-bind="value:gender">
+</div>
+<div id="g2" data-bind="component:Gender">
+    <input type="radio" name="gender" value="male" data-bind="value:gender">
+    <input type="radio" name="gender" value="female" data-bind="value:gender" checked>
+</div>
+<form id="f"><div data-bind="component:FormG">
+    <input type="radio" name="plan" value="a" data-bind="value:plan">
+    <input type="radio" name="plan" value="b" data-bind="value:plan" checked>
+</div></form>
+
+<div id="ev" data-bind="component:Ev">
+    <input id="evin" data-bind="focus:onFocus, blur:onBlur">
+    <button id="evbtn" data-bind="mouseenter:onEnter, mouseleave:onLeave"><span id="evspan">x</span></button>
+</div>
+
+<div id="cartHost"><div data-bind="component:Cart" data-key="1"><span data-bind="text:total">10</span></div></div>
+
+<div data-bind="component:Counter"><span data-bind="text:count">1</span></div>
+<div data-bind="component:Counter"><span data-bind="text:count">2</span></div>
+<div data-bind="component:Drift"><span data-bind="text:a">1</span></div>
+<div data-bind="component:Drift"><b data-bind="text:a">1</b></div>
+<div data-bind="component:Rows"><ul data-bind="foreach:[data: items, as: i]"><li data-bind="text:name">a</li></ul></div>
+<div data-bind="component:Rows"><ul data-bind="foreach:[data: items, as: i]"><li data-bind="text:name">a</li><li data-bind="text:name">b</li></ul></div>
+
+<div id="layout" data-bind="component:Layout">
+    <span data-bind="visible:isOn"></span>
+    <span data-bind="text:href">/x</span>
+    <div data-bind="component:Kid">
+        <b id="kb" data-bind="class:[layout.isOn => on, mine => local]">k</b>
+        <a id="ka" data-bind="attr:[layout.href => href, title => title]">a</a>
+        <span data-bind="text:title">T</span>
+    </div>
+</div>
+
+<div data-bind="component:Num"><input id="num" type="number" min="10" max="99" data-bind="value:qty" value="20"></div>
+<div id="rn" data-bind="component:RowNum"><ul data-bind="foreach:[data: rows, as: r]"><li><input type="number" min="10" data-bind="value:qty" value="20"></li></ul></div>
+
+<pre id="out"></pre>
+<script>
+    const out = [];
+    const check = (label, actual, expected) => {
+        const ok = JSON.stringify(actual) === JSON.stringify(expected);
+        out.push((ok ? 'PASS ' : 'FAIL ') + label + ' => ' + JSON.stringify(actual) + (ok ? '' : ' expected ' + JSON.stringify(expected)));
+    };
+    const tick = () => new Promise(res => setTimeout(res, 20));
+    const fire = (el, type, val) => { if (val !== undefined) el.value = val; el.dispatchEvent(new Event(type, { bubbles: true })); };
+
+    window.addEventListener('load', () => setTimeout(async () => {
+        try {
+            const initLogs = logs.splice(0);
+            check('markup: same structure, different data -> no warning', initLogs.filter(l => /Counter|Rows/.test(l)).length, 0);
+            check('markup: real drift still warns', initLogs.filter(l => /Drift/.test(l)).length, 1);
+            check('no other init warnings/errors', initLogs.filter(l => !/Drift/.test(l)), []);
+
+            check('radio g1 state = checked one', document.getElementById('g1').$state.gender, 'male');
+            check('radio g2 state = checked one', document.getElementById('g2').$state.gender, 'female');
+            const g1 = Array.from(document.querySelectorAll('#g1 [type=radio]')), g2 = Array.from(document.querySelectorAll('#g2 [type=radio]'));
+            check('radio g1/g2 names differ', g1[0].name !== g2[0].name && g1[0].name === g1[1].name, true);
+            g2[0].click();
+            check('clicking in g2 leaves g1 alone', g1.map(x => x.checked), [true, false]);
+            check('g2 state after click', document.getElementById('g2').$state.gender, 'male');
+            check('radio in <form> keeps name', new FormData(document.getElementById('f')).get('plan'), 'b');
+
+            document.getElementById('evin').focus();
+            document.getElementById('evin').blur();
+            const btn = document.getElementById('evbtn'), span = document.getElementById('evspan');
+            btn.dispatchEvent(new MouseEvent('mouseenter'));
+            span.dispatchEvent(new MouseEvent('mouseenter'));
+            btn.dispatchEvent(new MouseEvent('mouseleave'));
+            check('focus/blur/mouseenter/mouseleave each fire once', hits, { focus: 1, blur: 1, enter: 1, leave: 1 });
+
+            const host = document.getElementById('cartHost');
+            host.innerHTML = ''; await tick();
+            check('Cart unregistered on removal', jsRibbon.getInstances('Cart').length, 0);
+            host.innerHTML = '<div data-bind="component:Cart" data-key="1"><span data-bind="text:total">25</span></div>'; await tick();
+            check('re-injected Cart (same data-key) binds', host.firstElementChild.$state?.total, '25');
+            check('no warnings on reinject', logs.splice(0), []);
+
+            check('dotted class applied initially', document.getElementById('kb').classList.contains('on'), true);
+            document.getElementById('layout').$state.isOn = false;
+            check('dotted class reacts', document.getElementById('kb').classList.contains('on'), false);
+            const kid = document.querySelector('[data-bind="component:Kid"]');
+            kid.$state.mine = true;
+            check('local class next to dotted one', document.getElementById('kb').classList.contains('local'), true);
+            check('dotted attr applied', document.getElementById('ka').getAttribute('href'), '/x');
+            kid.$state.title = 'T2';
+            check('local attr next to dotted one', document.getElementById('ka').getAttribute('title'), 'T2');
+
+            const num = document.getElementById('num'), N = num.closest('[data-bind*="component:"]').$state;
+            fire(num, 'input', '1');
+            check('number: typing "1" (min=10) is not snapped', [num.value, N.qty], ['1', 1]);
+            fire(num, 'input', '15');
+            check('number: typing "15"', [num.value, N.qty], ['15', 15]);
+            fire(num, 'input', '1'); fire(num, 'change');
+            check('number: change clamps to min', [num.value, N.qty], ['10', 10]);
+            fire(num, 'input', '500'); fire(num, 'change');
+            check('number: change clamps to max', [num.value, N.qty], ['99', 99]);
+            N.qty = 42;
+            check('number: state -> DOM still works', num.value, '42');
+
+            const rin = document.querySelector('#rn input'), R = document.getElementById('rn').$state;
+            fire(rin, 'input', '1');
+            check('row number: typing "1" not snapped', [rin.value, R.rows[0].qty], ['1', 1]);
+            fire(rin, 'change');
+            check('row number: change clamps', [rin.value, R.rows[0].qty], ['10', 10]);
+
+            check('no errors during run', logs.filter(l => /error|uncaught/.test(l)), []);
+        } catch (e) { out.push('ERROR ' + e.stack); }
+        document.getElementById('out').textContent = out.join('\n');
+    }, 50));
+</script>
+</body>
+</html>

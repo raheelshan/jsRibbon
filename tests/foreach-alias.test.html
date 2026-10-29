@@ -1,0 +1,98 @@
+<html>
+<head>
+<script>
+    window.logs = [];
+    for (const lvl of ['warn', 'error']) {
+        const orig = console[lvl];
+        console[lvl] = (...a) => { logs.push(lvl + ': ' + a.filter(x => typeof x === 'string').join(' ')); orig.apply(console, a); };
+    }
+    window.addEventListener('error', e => logs.push('uncaught: ' + e.message));
+</script>
+<script src="../src/jsRibbon.js"></script>
+<script>
+    for (const n of ['Aliased', 'RootRow', 'Prims', 'Plain', 'Shop', 'Cart']) jsRibbon.component(n, () => ({}));
+</script>
+</head>
+<body>
+<div id="a" data-bind="component:Aliased">
+    <ul id="al" data-bind="foreach:[data: users, as: user]">
+        <li><span data-bind="text:user.name">Ali</span> <input type="checkbox" data-bind="value:user.active" checked><input data-bind="value:user.name" value="Ali"></li>
+        <li><span data-bind="text:user.name">Sara</span> <input type="checkbox" data-bind="value:user.active"><input data-bind="value:user.name" value="Sara"></li>
+    </ul>
+</div>
+
+<div id="r" data-bind="component:RootRow">
+    <ul id="rl" data-bind="foreach:[data: items, as: item]">
+        <li data-bind="text:item.title">One</li>
+        <li data-bind="text:item.title">Two</li>
+    </ul>
+</div>
+
+<div id="p" data-bind="component:Prims">
+    <ul id="pl" data-bind="foreach:[data: fruits, as: fruit]">
+        <li><span data-bind="text:fruit">Apple</span><input data-bind="value:fruit" value="Apple"></li>
+        <li><span data-bind="text:fruit">Mango</span><input data-bind="value:fruit" value="Mango"></li>
+    </ul>
+</div>
+
+<div id="pn" data-bind="component:Plain">
+    <ul id="pnl" data-bind="foreach:[data: rows, as: row]">
+        <li><span data-bind="text:name">X</span><input data-bind="value:name" value="X"></li>
+    </ul>
+</div>
+
+<div id="shop" data-bind="component:Shop">
+    <ul id="sl" data-bind="foreach:[data: products, as: p]"><li data-bind="text:p.name">Pen</li></ul>
+    <div data-bind="component:Cart">
+        <ul id="cl" data-bind="foreach:[data: shop.products, as: p]"><li><input data-bind="value:p.name" value="Pen"></li></ul>
+    </div>
+</div>
+
+<pre id="out"></pre>
+<script>
+    const out = [];
+    const check = (label, actual, expected) => {
+        const ok = JSON.stringify(actual) === JSON.stringify(expected);
+        out.push((ok ? 'PASS ' : 'FAIL ') + label + ' => ' + JSON.stringify(actual) + (ok ? '' : ' expected ' + JSON.stringify(expected)));
+    };
+    const st = id => document.getElementById(id).$state;
+    const texts = sel => Array.from(document.querySelectorAll(sel)).map(e => e.textContent.trim());
+    const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
+
+    window.addEventListener('load', () => setTimeout(() => {
+        try {
+            check('aliased: state seeded from server rows', JSON.parse(JSON.stringify(st('a').users)), [{ name: 'Ali', active: true }, { name: 'Sara', active: false }]);
+            check('aliased: server text kept', texts('#al span'), ['Ali', 'Sara']);
+            const inputs = document.querySelectorAll('#al input:not([type])');
+            type(inputs[1], 'Zara');
+            check('aliased: typing writes item.name', st('a').users[1].name, 'Zara');
+            check('aliased: row text follows typing', texts('#al span'), ['Ali', 'Zara']);
+            const cb = document.querySelectorAll('#al [type=checkbox]')[1];
+            cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true }));
+            check('aliased: checkbox writes item.active', st('a').users[1].active, true);
+            st('a').users.push({ name: 'New', active: false });
+            check('aliased: push still renders', texts('#al span'), ['Ali', 'Zara', 'New']);
+
+            check('row-root binding seeded', JSON.parse(JSON.stringify(st('r').items)), [{ title: 'One' }, { title: 'Two' }]);
+            check('row-root text kept', texts('#rl li'), ['One', 'Two']);
+
+            check('primitive rows seeded', JSON.parse(JSON.stringify(st('p').fruits)), ['Apple', 'Mango']);
+            type(document.querySelectorAll('#pl input')[0], 'Kiwi');
+            check('primitive: typing replaces slot', JSON.parse(JSON.stringify(st('p').fruits)), ['Kiwi', 'Mango']);
+            check('primitive: row text follows', texts('#pl span'), ['Kiwi', 'Mango']);
+            check('primitive: input keeps value', document.querySelectorAll('#pl input')[0].value, 'Kiwi');
+
+            type(document.querySelector('#pnl input'), 'Y');
+            check('unaliased keys still work', [st('pn').rows[0].name, texts('#pnl span')[0]], ['Y', 'Y']);
+
+            check('dotted+alias: seeded', JSON.parse(JSON.stringify(st('shop').products)), [{ name: 'Pen' }]);
+            type(document.querySelector('#cl input'), 'Ink');
+            check('dotted+alias: child input writes parent item', st('shop').products[0].name, 'Ink');
+
+            check('no warnings/errors', logs, []);
+        } catch (e) { out.push('ERROR ' + e.stack); }
+        document.getElementById('out').textContent = out.join('\n');
+    }, 50));
+</script>
+</body>
+</html>

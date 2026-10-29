@@ -1,0 +1,77 @@
+<html>
+<head>
+<script>
+    window.logs = [];
+    for (const lvl of ['warn', 'error']) {
+        const orig = console[lvl];
+        console[lvl] = (...a) => { logs.push(lvl + ': ' + a.filter(x => typeof x === 'string').join(' ')); orig.apply(console, a); };
+    }
+    window.addEventListener('error', e => logs.push('uncaught: ' + e.message));
+</script>
+<script src="../src/jsRibbon.js"></script>
+<script>jsRibbon.component('Team', () => ({}));</script>
+</head>
+<body>
+<div id="t" data-bind="component:Team">
+    <ul id="ul" data-bind="foreach:[data: users, as: u]">
+        <li>
+            <span data-bind="text:u.name">Ali</span>
+            <select multiple data-bind="value:u.tags"><option value="a" selected>A</option><option value="b">B</option><option value="c" selected>C</option></select>
+            <select data-bind="value:u.role"><option value="dev">Dev</option><option value="ops" selected>Ops</option></select>
+            <textarea data-bind="value:u.bio">Hello</textarea>
+        </li>
+        <li>
+            <span data-bind="text:u.name">Sara</span>
+            <select multiple data-bind="value:u.tags"><option value="a">A</option><option value="b" selected>B</option><option value="c">C</option></select>
+            <select data-bind="value:u.role"><option value="dev" selected>Dev</option><option value="ops">Ops</option></select>
+            <textarea data-bind="value:u.bio">Hi</textarea>
+        </li>
+    </ul>
+</div>
+<pre id="out"></pre>
+<script>
+    const out = [];
+    const check = (label, actual, expected) => {
+        const ok = JSON.stringify(actual) === JSON.stringify(expected);
+        out.push((ok ? 'PASS ' : 'FAIL ') + label + ' => ' + JSON.stringify(actual) + (ok ? '' : ' expected ' + JSON.stringify(expected)));
+    };
+    const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
+    const sel = el => Array.from(el.selectedOptions, o => o.value);
+
+    window.addEventListener('load', () => setTimeout(() => {
+        try {
+            const S = document.getElementById('t').$state;
+            const rows = () => document.querySelectorAll('#ul li');
+            check('seeded from server rows', JSON.parse(JSON.stringify(S.users)), [
+                { name: 'Ali', tags: ['a', 'c'], role: 'ops', bio: 'Hello' },
+                { name: 'Sara', tags: ['b'], role: 'dev', bio: 'Hi' }
+            ]);
+            check('server selection kept on load', [sel(rows()[0].querySelector('[multiple]')), rows()[0].querySelector('select:not([multiple])').value], [['a', 'c'], 'ops']);
+
+            const m = rows()[1].querySelector('[multiple]');
+            m.options[0].selected = true; m.options[2].selected = true; fire(m, 'input'); fire(m, 'change');
+            check('multi-select writes all selected', S.users[1].tags, ['a', 'b', 'c']);
+
+            const s = rows()[1].querySelector('select:not([multiple])');
+            s.value = 'ops'; fire(s, 'input'); fire(s, 'change');
+            check('single select writes', S.users[1].role, 'ops');
+
+            const ta = rows()[1].querySelector('textarea');
+            ta.value = 'Bye'; fire(ta, 'input');
+            check('textarea writes', S.users[1].bio, 'Bye');
+
+            S.users[0] = { name: 'Ali', tags: ['b'], role: 'dev', bio: 'New' };
+            const r0 = rows()[0];
+            check('state -> DOM: multi, single, textarea', [sel(r0.querySelector('[multiple]')), r0.querySelector('select:not([multiple])').value, r0.querySelector('textarea').value], [['b'], 'dev', 'New']);
+
+            S.users.push({ name: 'Omar', tags: ['c'], role: 'ops', bio: 'Yo' });
+            const r2 = rows()[2];
+            check('new row from template', [sel(r2.querySelector('[multiple]')), r2.querySelector('select:not([multiple])').value, r2.querySelector('textarea').value], [['c'], 'ops', 'Yo']);
+
+            check('no warnings/errors', logs, []);
+        } catch (e) { out.push('ERROR ' + e.stack); }
+        document.getElementById('out').textContent = out.join('\n');
+    }, 50));
+</script>
+</body>
+</html>

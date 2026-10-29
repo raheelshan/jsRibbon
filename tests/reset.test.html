@@ -1,0 +1,99 @@
+<html>
+<head>
+<script>
+    window.logs = [];
+    for (const lvl of ['warn', 'error']) {
+        const orig = console[lvl];
+        console[lvl] = (...a) => { logs.push(lvl + ': ' + a.filter(x => typeof x === 'string').join(' ')); orig.apply(console, a); };
+    }
+    window.addEventListener('error', e => logs.push('uncaught: ' + e.message));
+</script>
+<script>
+  window.live = new Map();
+  const orig = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function (t, fn, opts) {
+    if (this instanceof Element) {
+      live.set(this, (live.get(this) || 0) + 1);
+      const sig = opts && opts.signal;
+      if (sig) sig.addEventListener('abort', () => live.set(this, live.get(this) - 1));
+    }
+    return orig.call(this, t, fn, opts);
+  };
+  window.total = () => [...live.values()].reduce((a, b) => a + b, 0);
+</script>
+<script src="../src/jsRibbon.js"></script>
+<script>
+    window.calls = { click: 0, focus: 0, factory: 0 };
+    jsRibbon.component('Form1', () => { calls.factory++; return { go() { calls.click++; }, onFocus() { calls.focus++; } }; });
+    jsRibbon.component('Layout', () => ({}));
+    jsRibbon.component('Kid', () => ({}));
+    jsRibbon.component('Emp', () => ({}));
+    jsRibbon.component('G', () => ({}));
+</script>
+</head>
+<body>
+<div id="f" data-bind="component:Form1">
+    <input id="name" data-bind="value:name, focus:onFocus" value="Ali">
+    <span id="echo" data-bind="text:name">Ali</span>
+    <input type="checkbox" value="js" data-bind="value:skills"><input type="checkbox" value="php" data-bind="value:skills">
+    <button id="go" data-bind="click:go">go</button>
+</div>
+<div id="layout" data-bind="component:Layout">
+    <span data-bind="text:title">T</span>
+    <div id="kid" data-bind="component:Kid"><b id="kb" data-bind="text:layout.title">T</b></div>
+</div>
+<div id="emp" data-bind="component:Emp"><ul id="el" data-bind="foreach:[data: items, as: i]"><template><li data-bind="text:i.name"></li></template></ul></div>
+<div id="g" data-bind="component:G"><input type="radio" name="opt" value="a" data-bind="value:opt" checked><input type="radio" name="opt" value="b" data-bind="value:opt"></div>
+
+<pre id="out"></pre>
+<script>
+    const out = [];
+    const check = (label, actual, expected) => {
+        const ok = JSON.stringify(actual) === JSON.stringify(expected);
+        out.push((ok ? 'PASS ' : 'FAIL ') + label + ' => ' + JSON.stringify(actual) + (ok ? '' : ' expected ' + JSON.stringify(expected)));
+    };
+    window.addEventListener('load', () => setTimeout(() => {
+        try {
+            const st = id => document.getElementById(id).$state;
+            const radioName = document.querySelector('#g input').name;
+            const before = total();
+            jsRibbon.reset();
+            jsRibbon.reset();
+            check("active listeners unchanged after 2 resets", total(), before);
+
+            check('factory ran once per reset', calls.factory, 3);
+
+            const input = document.getElementById('name');
+            let writes = 0;
+            const S = st('f');
+            input.value = 'Zed'; input.dispatchEvent(new Event('input', { bubbles: true }));
+            check('typing updates current state', S.name, 'Zed');
+            check('text follows typing', document.getElementById('echo').textContent, 'Zed');
+            S.name = 'Code';
+            check('state -> DOM after reset', [input.value, document.getElementById('echo').textContent], ['Code', 'Code']);
+
+            const cbs = document.querySelectorAll('#f [type=checkbox]');
+            cbs[0].click();
+            check('checkbox group after reset', [...st('f').skills], ['js']);
+
+            document.getElementById('go').click();
+            check('click handler fires once', calls.click, 1);
+            input.blur(); input.focus();
+            check('focus handler fires once', calls.focus, 1);
+
+            st('layout').title = 'New';
+            check('child follows parent after reset', document.getElementById('kb').textContent, 'New');
+
+            check('empty foreach with <template> survives reset', logs.filter(l => /Markup not found|template/i.test(l)), []);
+            st('emp').items.push({ name: 'x' });
+            check('empty foreach renders after reset', document.querySelectorAll('#el li').length, 1);
+
+            check('radio name not re-scoped on reset', document.querySelector('#g input').name, radioName);
+            check('Form1 instances', jsRibbon.getInstances('Form1').length, 1);
+            check('no warnings/errors', logs, []);
+        } catch (e) { out.push('ERROR ' + e.stack); }
+        document.getElementById('out').textContent = out.join('\n');
+    }, 50));
+</script>
+</body>
+</html>

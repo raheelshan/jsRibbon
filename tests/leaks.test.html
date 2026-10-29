@@ -1,0 +1,77 @@
+<html>
+<head>
+<script>
+    window.logs = [];
+    for (const lvl of ['warn', 'error']) {
+        const orig = console[lvl];
+        console[lvl] = (...a) => { logs.push(lvl + ': ' + a.filter(x => typeof x === 'string').join(' ')); orig.apply(console, a); };
+    }
+    window.addEventListener('error', e => logs.push('uncaught: ' + e.message));
+</script>
+<script src="../src/jsRibbon.js"></script>
+<script>
+    for (const n of ['Shop', 'Cart', 'Solo']) jsRibbon.component(n, () => ({}));
+</script>
+</head>
+<body>
+<div id="shop" data-bind="component:Shop">
+    <h1 data-bind="text:title">Store</h1>
+    <ul id="pl" data-bind="foreach:[data: products, as: p]"><li data-bind="text:p.name">Pen</li></ul>
+    <div id="host"></div>
+    <div id="elsewhere"></div>
+</div>
+<div id="solo" data-bind="component:Solo"><ul id="sl" data-bind="foreach:[data: items, as: i]"><li data-bind="text:i.name">a</li></ul></div>
+
+<pre id="out"></pre>
+<script>
+    const out = [];
+    const check = (label, actual, expected) => {
+        const ok = JSON.stringify(actual) === JSON.stringify(expected);
+        out.push((ok ? 'PASS ' : 'FAIL ') + label + ' => ' + JSON.stringify(actual) + (ok ? '' : ' expected ' + JSON.stringify(expected)));
+    };
+    const tick = () => new Promise(res => setTimeout(res, 0));
+    const cartHtml = '<div data-bind="component:Cart"><b data-bind="text:shop.title">Store</b><ul data-bind="foreach:[data: shop.products, as: p]"><li data-bind="text:p.name">Pen</li></ul></div>';
+
+    window.addEventListener('load', () => setTimeout(async () => {
+        try {
+            const shop = document.getElementById('shop').$state, host = document.getElementById('host');
+
+            host.innerHTML = cartHtml; await tick();
+            const firstB = host.querySelector('b'), firstUl = host.querySelector('ul');
+            for (let i = 0; i < 50; i++) { host.innerHTML = cartHtml; await tick(); }
+
+            shop.title = 'Sale';
+            shop.products.push({ name: 'Ink' });
+            check('live child text follows parent', host.querySelector('b').textContent, 'Sale');
+            check('live child list follows parent', host.querySelectorAll('li').length, 2);
+            check('removed child text no longer updated', firstB.textContent, 'Store');
+            check('removed child list no longer updated', firstUl.children.length, 1);
+            check('parent list still renders', document.querySelectorAll('#pl li').length, 2);
+            check('Cart instances = 1', jsRibbon.getInstances('Cart').length, 1);
+
+            // moved (removed + re-inserted in the same batch) keeps its subscriptions
+            const cart = host.firstElementChild;
+            document.getElementById('elsewhere').appendChild(cart); await tick();
+            shop.title = 'Moved';
+            check('moved child still follows parent', cart.querySelector('b').textContent, 'Moved');
+
+            // render count: a getter counts how often rows are rebound
+            let reads = 0;
+            const solo = document.getElementById('solo').$state;
+            solo.items.push({ get name() { reads++; return 'b'; } });
+            check('push renders once', reads, 1);
+            reads = 0;
+            solo.items = solo.items;
+            check('self-reassign renders once', reads, 1);
+            reads = 0;
+            solo.items.push({ name: 'c' });
+            check('push after self-reassign renders once', reads, 1);
+            check('solo list', Array.from(document.querySelectorAll('#sl li')).map(l => l.textContent), ['a', 'b', 'c']);
+
+            check('no warnings/errors', logs, []);
+        } catch (e) { out.push('ERROR ' + e.stack); }
+        document.getElementById('out').textContent = out.join('\n');
+    }, 50));
+</script>
+</body>
+</html>

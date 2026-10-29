@@ -4,7 +4,8 @@
   "description": "A minimal DOM-first reactive UI library",
   "main": "dist/jsRibbon.js",
   "scripts": {
-    "build": "terser src/jsRibbon.js -o dist/jsRibbon.min.js -c -m"
+    "build": "terser src/jsRibbon.js -o dist/jsRibbon.min.js -c -m",
+    "test": "node tests/run.js"
   },
   "keywords": [
     "reactive",

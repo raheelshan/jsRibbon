@@ -1,0 +1,83 @@
+<html>
+<head>
+<script src="../src/jsRibbon.js"></script>
+<script>
+    jsRibbon.component('Local', () => ({}));
+    jsRibbon.component('Twin', () => ({}));
+    jsRibbon.component('Layout', () => ({}));
+    jsRibbon.component('Child', () => ({}));
+</script>
+</head>
+<body>
+<div id="local" data-bind="component:Local">
+    <ul id="l" data-bind="foreach:[data: items, as: item]">
+        <li><span data-bind="text:item.name">A</span><input data-bind="value:item.name" value="A"></li>
+        <li><span data-bind="text:item.name">B</span><input data-bind="value:item.name" value="B"></li>
+    </ul>
+</div>
+
+<div id="twin" data-bind="component:Twin">
+    <ul id="t1" data-bind="foreach:[data: items, as: item]"><li data-bind="text:item.name">X</li></ul>
+    <ul id="t2" data-bind="foreach:[data: items, as: item]"><li data-bind="text:item.name">X</li></ul>
+</div>
+
+<div id="layout" data-bind="component:Layout">
+    <ul id="p" data-bind="foreach:[data: items, as: item]"><li data-bind="text:item.name">P1</li></ul>
+    <div id="child" data-bind="component:Child">
+        <ul id="c" data-bind="foreach:[data: layout.items, as: item]"><li data-bind="text:item.name">P1</li></ul>
+    </div>
+</div>
+
+<pre id="out"></pre>
+<script>
+    const out = [];
+    const txt = id => Array.from(document.getElementById(id).children).map(li => li.textContent.trim()).join(',');
+    const check = (label, actual, expected) => out.push((actual === expected ? 'PASS ' : 'FAIL ') + label + ' => ' + JSON.stringify(actual) + (actual === expected ? '' : ' expected ' + JSON.stringify(expected)));
+
+    window.addEventListener('load', () => setTimeout(() => {
+        try {
+            const L = document.getElementById('local').$state;
+            check('local initial', txt('l'), 'A,B');
+            L.items.push({ name: 'C' });
+            check('local push', txt('l'), 'A,B,C');
+            L.items = [{ name: 'Q' }, { name: 'R' }, { name: 'S' }, { name: 'T' }];
+            check('local reassign longer', txt('l'), 'Q,R,S,T');
+            L.items.push({ name: 'U' });
+            check('local push after reassign', txt('l'), 'Q,R,S,T,U');
+            L.items.splice(0, 1);
+            check('local splice after reassign', txt('l'), 'R,S,T,U');
+            L.items = [{ name: 'Z' }];
+            check('local reassign shorter', txt('l'), 'Z');
+            const input = document.querySelector('#l input');
+            input.value = 'typed';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            check('row two-way value after reassign', L.items[0].name, 'typed');
+            L.items = null;
+            check('local reassign null clears', txt('l'), '');
+            let threw = false; try { L.items.push({ name: 'N' }); } catch (e) { threw = true; }
+            check('push on null throws like plain JS', threw, true);
+
+            const T = document.getElementById('twin').$state;
+            T.items = [{ name: 'a' }, { name: 'b' }];
+            check('twin reassign t1', txt('t1'), 'a,b');
+            check('twin reassign t2', txt('t2'), 'a,b');
+            T.items.push({ name: 'c' });
+            check('twin push t1', txt('t1'), 'a,b,c');
+            check('twin push t2', txt('t2'), 'a,b,c');
+
+            const P = document.getElementById('layout').$state;
+            P.items = [{ name: 'x' }, { name: 'y' }];
+            check('dotted reassign parent list', txt('p'), 'x,y');
+            check('dotted reassign child list', txt('c'), 'x,y');
+            P.items.push({ name: 'z' });
+            check('dotted push parent', txt('p'), 'x,y,z');
+            check('dotted push child', txt('c'), 'x,y,z');
+        } catch (e) {
+            out.push('ERROR ' + e.stack);
+        }
+        document.getElementById('out').textContent = out.join('\n');
+    }, 50));
+</script>
+</body>
+</html>

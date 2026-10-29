@@ -38,7 +38,9 @@ file (~1850 lines), so there's no module boundary hiding the design.
 src/jsRibbon.js       — the entire library (single file, hand-written, no build needed to run it)
 dist/jsRibbon.js      — unminified copy of src, tracked in git (do not hand-edit — regenerate)
 dist/jsRibbon.min.js  — terser output, tracked in git, referenced by the jsDelivr CDN install snippet
-examples/*.html       — manual smoke tests (open in a browser + check devtools console); NOT automated tests
+examples/*.html       — demo pages; `npm test` also loads each one and fails on uncaught errors
+tests/*.test.html     — assertion pages, each writes PASS/FAIL lines into <pre id="out">
+tests/run.js          — `npm test` runner (headless Chrome, no dependencies)
 README.md             — quickstart, points to https://jsribbon.raheelshan.com/ for full docs
 ```
 
@@ -46,9 +48,15 @@ Build: `npm run build` → runs `terser src/jsRibbon.js -o dist/jsRibbon.min.js 
 There is no other build step. `dist/jsRibbon.js` (the unminified copy) must be
 kept in sync with `src/jsRibbon.js` manually — there's no script that copies it.
 
-No test runner is configured (`package.json` has no `test` script). Verifying
-a change currently means opening the relevant file(s) in `examples/` in a
-browser and checking behavior/console output by hand.
+Tests: `npm test` runs every `tests/*.test.html` in headless Chrome
+(`--dump-dom`, reads `<pre id="out">`) and loads every `examples/*.html`
+against the current `src/` (copied next to a temp `jsRibbon.js`, since the
+examples load `./jsRibbon.js`), failing on any uncaught error. Set `CHROME=`
+if Chrome isn't found. To add a test, copy an existing `.test.html`: it loads
+`../src/jsRibbon.js`, runs checks after `load`, and writes one
+`PASS `/`FAIL `/`ERROR ` line per check into `<pre id="out">`. Run the
+suite before and after any change; checking a new test against the last tag's
+`src` shows it actually catches the bug.
 
 `.gitignore` lists `dist/`, but `dist/*.js` is already tracked from before
 that rule was added (`git ls-files` confirms both files are tracked). The
@@ -186,18 +194,11 @@ the diff). Still open:
 1. No component lifecycle hooks (`onMount`/`onDestroy`), by decision: the
    factory already runs on mount, and HTMX's `htmx:beforeCleanupElement`
    covers teardown.
-2. No automated tests; `examples/*.html` are manual/console-driven only.
-   Headless Chrome works for scripted checks: a page that runs assertions
-   and writes them into the DOM, read back with
-   `chrome --headless=new --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file:///...`. If
-   you touch `renderForeach`/`bindRowFields`/`resolvePath`/the two parsers,
-   manually exercise the relevant `examples/*.html` file(s) in a browser —
-   there's no regression net yet.
-3. Global, unscoped module state (`componentMap`/`componentKeys`/
+2. Global, unscoped module state (`componentMap`/`componentKeys`/
    `componentMarkupRegistry`/`initializedElements`) — fine for one page/one
    app, but no story for multiple independent jsRibbon instances on one page
    beyond `reset()`.
-4. Mutating a field on a foreach item (`state.items[0].name = 'x'`) does not
+3. Mutating a field on a foreach item (`state.items[0].name = 'x'`) does not
    re-render; items are plain objects. Replacing the item
    (`state.items[0] = {...}`) or any array method does.
 

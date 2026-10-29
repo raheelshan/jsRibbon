@@ -1,0 +1,79 @@
+<html>
+<head>
+<script>
+    window.logs = [];
+    for (const lvl of ['warn', 'error']) {
+        const orig = console[lvl];
+        console[lvl] = (...a) => { logs.push(lvl + ': ' + a.filter(x => typeof x === 'string').join(' ')); orig.apply(console, a); };
+    }
+    window.addEventListener('error', e => logs.push('uncaught: ' + e.message));
+</script>
+<script src="../src/jsRibbon.js"></script>
+<script>
+    window.hits = [];
+    jsRibbon.component('Layout', () => ({ save() { hits.push('Layout.save'); } }));
+    jsRibbon.component('LayoutSidebar', () => ({ save() { hits.push('LayoutSidebar.save'); } }));
+    jsRibbon.component('Item', () => ({}));
+    jsRibbon.component('Form', () => ({}));
+    jsRibbon.component('Field', () => ({}));
+    jsRibbon.component('Spaced', () => ({}));
+    jsRibbon.component('Inner', () => ({}));
+</script>
+</head>
+<body>
+<div id="layout" data-bind="component:Layout">
+    <span data-bind="text:title">Home</span>
+    <div data-bind="component:LayoutSidebar">
+        <span data-bind="text:width">200</span>
+        <div id="item" data-bind="component:Item">
+            <b id="ib" data-bind="text:layout.title">Home</b>
+            <button id="ibtn" data-bind="click:layout.save">s</button>
+        </div>
+    </div>
+</div>
+
+<div data-bind="component:Form">
+    <div id="field" data-bind="component:Field, parent:Form"><span data-bind="text:x">1</span></div>
+</div>
+<div id="orphan" data-bind="component:Field, parent:Form"><span data-bind="text:x">1</span></div>
+
+<div id="spaced" data-bind="component: Spaced">
+    <span data-bind="text:greeting">Hi</span>
+    <div data-bind="component:Inner"><i id="ii" data-bind="text:spaced.greeting">Hi</i></div>
+</div>
+
+<pre id="out"></pre>
+<script>
+    const out = [];
+    const check = (label, actual, expected) => {
+        const ok = JSON.stringify(actual) === JSON.stringify(expected);
+        out.push((ok ? 'PASS ' : 'FAIL ') + label + ' => ' + JSON.stringify(actual) + (ok ? '' : ' expected ' + JSON.stringify(expected)));
+    };
+    window.addEventListener('load', () => setTimeout(() => {
+        try {
+            const initLogs = logs.splice(0);
+            check('parent: present -> no warning', initLogs.filter(l => /missing expected parent/.test(l)).length, 1);
+            check('parent: missing -> warns (orphan only)', initLogs.some(l => /missing expected parent "Form"/.test(l)), true);
+            check('no other init warnings', initLogs.filter(l => !/missing expected parent/.test(l)), []);
+
+            document.getElementById('layout').$state.title = 'Sale';
+            check('layout.x resolves to Layout, not LayoutSidebar', document.getElementById('ib').textContent, 'Sale');
+            document.getElementById('ibtn').click();
+            check('layout.save calls Layout handler', hits, ['Layout.save']);
+
+            check('"component: Spaced" registers with its name', jsRibbon.getInstances('Spaced').length, 1);
+            document.getElementById('spaced').$state.greeting = 'Yo';
+            check('spaced.x resolves through "component: Spaced"', document.getElementById('ii').textContent, 'Yo');
+
+            const field = document.getElementById('field');
+            field.remove();
+            setTimeout(() => {
+                check('unregister by name', jsRibbon.getInstances('Field').length, 1);
+                check('no warnings/errors after', logs.filter(l => !/missing expected parent/.test(l)), []);
+                document.getElementById('out').textContent = out.join('\n');
+            }, 20);
+        } catch (e) { out.push('ERROR ' + e.stack); document.getElementById('out').textContent = out.join('\n'); }
+    }, 50));
+</script>
+</body>
+</html>
