@@ -102,6 +102,13 @@ Two IIFEs, all in one file:
      used to wrap the ancestor's array in a proxy closing over the child's
      DOM, which stacked one layer per HTMX swap. `WRAPPED_KEY` stops
      `wrapArray` double-wrapping an already-wrapped array.
+   - Objects read out of a reactive array (and anything nested in them) come
+     back as `wrapItem` proxies that notify the array's key on write/delete,
+     so `state.items[0].name = 'x'` and a row handler's `this.done = true`
+     re-render. The array itself stores only plain objects (`toRaw` on every
+     write, `indexOf`/`includes` search raw), and proxies are cached per key
+     in a WeakMap so `state.items[0] === state.items[0]`. Row `value:` writes
+     go through the item proxy too, so they re-render every list on that array.
    - Subscriptions on an ancestor's state (anything resolved via
      `resolvePath`) are recorded on the owning component's `$cleanup` and
      removed in `unregisterComponent`. `subscribe()` returns an unsubscribe
@@ -198,9 +205,6 @@ the diff). Still open:
    `componentMarkupRegistry`/`initializedElements`) — fine for one page/one
    app, but no story for multiple independent jsRibbon instances on one page
    beyond `reset()`.
-3. Mutating a field on a foreach item (`state.items[0].name = 'x'`) does not
-   re-render; items are plain objects. Replacing the item
-   (`state.items[0] = {...}`) or any array method does.
 
 ## Conventions observed in this repo
 

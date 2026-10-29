@@ -128,13 +128,14 @@ For a list of plain values, bind the alias itself:
 
 ```js
 $state.users.push({ name: 'Omar' });             // push, pop, shift, unshift, splice, sort, reverse
+$state.users[0].name = 'Ali Khan';               // change a field on one item
 $state.users[0] = { name: 'Ali Khan' };          // replace one row
 $state.users = await fetch('/users').then(r => r.json());   // replace the whole list
 ```
 
-Changing a field on an existing item (`$state.users[0].name = 'x'`) does not
-re-render. Replace the item instead: `$state.users[0] = { ...$state.users[0], name: 'x' }`.
-Typing into a row's `value:` input updates its item automatically.
+Inside a row's event handler, `this` is that row's item, so `this.done = true`
+updates the row. Typing into a row's `value:` input updates its item, and every
+list bound to the same array, automatically.
 
 ## Project Structure
 

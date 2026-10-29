@@ -1,0 +1,122 @@
+<html>
+<head>
+<script>
+    window.logs = [];
+    for (const lvl of ['warn', 'error']) {
+        const orig = console[lvl];
+        console[lvl] = (...a) => { logs.push(lvl + ': ' + a.filter(x => typeof x === 'string').join(' ')); orig.apply(console, a); };
+    }
+    window.addEventListener('error', e => logs.push('uncaught: ' + e.message));
+</script>
+<script src="../src/jsRibbon.js"></script>
+<script>
+    jsRibbon.component('Todos', () => ({
+        markDone() { this.done = true; }
+    }));
+    jsRibbon.component('Tags', () => ({}));
+    jsRibbon.component('Layout', () => ({}));
+    jsRibbon.component('Child', () => ({}));
+</script>
+</head>
+<body>
+<div id="todos" data-bind="component:Todos">
+    <ul id="l1" data-bind="foreach:[data: items, as: item]">
+        <li data-bind="class:[item.done => done]">
+            <span data-bind="text:item.name">A</span>
+            <input data-bind="value:item.name" value="A">
+            <button data-bind="click:markDone">x</button>
+        </li>
+        <li data-bind="class:[item.done => done]">
+            <span data-bind="text:item.name">B</span>
+            <input data-bind="value:item.name" value="B">
+            <button data-bind="click:markDone">x</button>
+        </li>
+    </ul>
+    <ul id="l2" data-bind="foreach:[data: items, as: item]"><li data-bind="text:item.name">A</li><li data-bind="text:item.name">B</li></ul>
+</div>
+
+<div id="tags" data-bind="component:Tags">
+    <div id="t" data-bind="foreach:[data: rows, as: row]">
+        <div>
+            <select data-bind="value:row.tags" multiple>
+                <option value="a" selected>a</option>
+                <option value="b">b</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div id="layout" data-bind="component:Layout">
+    <ul id="p" data-bind="foreach:[data: users, as: user]"><li data-bind="text:user.name">Ali</li></ul>
+    <div data-bind="component:Child">
+        <ul id="c" data-bind="foreach:[data: layout.users, as: user]"><li data-bind="text:user.name">Ali</li></ul>
+    </div>
+</div>
+
+<pre id="out"></pre>
+<script>
+    const out = [];
+    const check = (label, actual, expected) => {
+        const ok = JSON.stringify(actual) === JSON.stringify(expected);
+        out.push((ok ? 'PASS ' : 'FAIL ') + label + ' => ' + JSON.stringify(actual) + (ok ? '' : ' expected ' + JSON.stringify(expected)));
+    };
+    const spans = () => Array.from(document.querySelectorAll('#l1 span'), s => s.textContent).join(',');
+    const txt = id => Array.from(document.getElementById(id).children, c => c.textContent.trim()).join(',');
+
+    window.addEventListener('load', () => setTimeout(() => {
+        try {
+            const s = document.getElementById('todos').$state;
+
+            s.items[0].name = 'Apple';
+            check('field write re-renders the row', spans(), 'Apple,B');
+            check('field write re-renders a second list on the same array', txt('l2'), 'Apple,B');
+            check('row input follows the field', document.querySelector('#l1 input').value, 'Apple');
+
+            check('same item proxy on every read', s.items[1] === s.items[1], true);
+            check('indexOf finds an item read from the array', s.items.indexOf(s.items[1]), 1);
+            check('includes finds an item read from the array', s.items.includes(s.items[0]), true);
+            check('JSON.stringify sees plain data', JSON.stringify(s.items), '[{"name":"Apple"},{"name":"B"}]');
+
+            const second = s.items[1];
+            s.items.splice(0, 1);
+            second.name = 'Banana';
+            check('held item still updates its row after splice', spans(), 'Banana');
+
+            s.items.push({ name: 'C' });
+            s.items[1].name = 'Cherry';
+            check('pushed item is reactive', spans(), 'Banana,Cherry');
+
+            s.items.push(s.items[0]);
+            check('pushing a read item stores the plain object', s.items.indexOf(s.items[2]), 0);
+            s.items.pop();
+
+            const input = document.querySelectorAll('#l1 input')[1];
+            input.value = 'Cranberry';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            check('typing updates the same row text', spans(), 'Banana,Cranberry');
+            check('typing updates the other list', txt('l2'), 'Banana,Cranberry');
+
+            document.querySelectorAll('#l1 button')[0].click();
+            check('handler this.done = true re-renders class', document.querySelector('#l1 li').classList.contains('done'), true);
+
+            delete s.items[0].done;
+            check('delete field re-renders', document.querySelector('#l1 li').classList.contains('done'), false);
+
+            const t = document.getElementById('tags').$state;
+            t.rows[0].tags.push('b');
+            check('nested array push in item re-renders', Array.from(document.querySelector('#t select').selectedOptions, o => o.value), ['a', 'b']);
+
+            const L = document.getElementById('layout').$state;
+            L.users[0].name = 'Ali Khan';
+            check('dotted foreach: parent list', txt('p'), 'Ali Khan');
+            check('dotted foreach: child list', txt('c'), 'Ali Khan');
+
+            check('no warnings/errors', logs, []);
+        } catch (e) {
+            out.push('ERROR ' + e.stack);
+        }
+        document.getElementById('out').textContent = out.join('\n');
+    }, 50));
+</script>
+</body>
+</html>

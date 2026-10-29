@@ -420,14 +420,61 @@
 
     // Marks an array already wrapped by wrapArray (value = the key it notifies)
     const WRAPPED_KEY = Symbol('wrappedKey');
+    // Read through an item proxy, returns the plain object behind it
+    const RAW_KEY = Symbol('raw');
+
+    const toRaw = v => (v && typeof v === 'object' && v[RAW_KEY]) || v;
 
     function createReactiveState(initial) {
         const subscribers = {};
+        // propKey -> WeakMap(plain object -> its proxy), so state.items[0] === state.items[0]
+        const itemProxies = {};
+
+        function notify(propKey, value) {
+            if (subscribers[propKey]) {
+                subscribers[propKey].forEach(cb => cb(value));
+            }
+        }
+
+        // Objects inside a reactive array (items, and anything nested in them)
+        // are handed out as proxies that notify the array's key on write, so
+        // state.items[0].name = 'x' re-renders like state.items[0] = {...}.
+        // The array itself only ever stores the plain objects.
+        function wrapItem(obj, propKey, arr) {
+            const cache = itemProxies[propKey] || (itemProxies[propKey] = new WeakMap());
+            let p = cache.get(obj);
+            if (!p) {
+                p = new Proxy(obj, {
+                    get(target, prop, receiver) {
+                        if (prop === RAW_KEY) return target;
+                        const value = Reflect.get(target, prop, receiver);
+                        return value && typeof value === 'object' ? wrapItem(value, propKey, arr) : value;
+                    },
+                    set(target, prop, value) {
+                        const result = Reflect.set(target, prop, toRaw(value));
+                        notify(propKey, arr);
+                        return result;
+                    },
+                    deleteProperty(target, prop) {
+                        const result = Reflect.deleteProperty(target, prop);
+                        notify(propKey, arr);
+                        return result;
+                    }
+                });
+                cache.set(obj, p);
+            }
+            return p;
+        }
 
         function wrapArray(arr, propKey) {
             // Re-assigning an already-wrapped array (state.items = state.items)
             // would otherwise stack proxies and multiply notifications
             if (arr[WRAPPED_KEY] === propKey) return arr;
+
+            // Items assigned from another array's proxies are stored plain
+            if (!arr[WRAPPED_KEY]) {
+                for (let i = 0; i < arr.length; i++) arr[i] = toRaw(arr[i]);
+            }
 
             return new Proxy(arr, {
                 get(target, prop, receiver) {
@@ -435,20 +482,24 @@
                     // Intercept mutating array methods
                     if (['push', 'splice', 'shift', 'unshift', 'pop', 'sort', 'reverse'].includes(prop)) {
                         return function (...args) {
-                            const result = Array.prototype[prop].apply(target, args);
-                            if (subscribers[propKey]) {
-                                subscribers[propKey].forEach(cb => cb(target));
-                            }
+                            const result = Array.prototype[prop].apply(target, args.map(toRaw));
+                            notify(propKey, target);
                             return result;
                         }
                     }
-                    return Reflect.get(target, prop, receiver);
+                    // Search the plain objects, so indexOf(state.items[0]) still finds it
+                    if (['indexOf', 'lastIndexOf', 'includes'].includes(prop)) {
+                        return (search, ...rest) => Array.prototype[prop].call(target, toRaw(search), ...rest);
+                    }
+                    const value = Reflect.get(target, prop, receiver);
+                    if (typeof prop === 'string' && /^\d+$/.test(prop) && value && typeof value === 'object') {
+                        return wrapItem(value, propKey, target);
+                    }
+                    return value;
                 },
                 set(target, prop, value, receiver) {
-                    const result = Reflect.set(target, prop, value, receiver);
-                    if (subscribers[propKey]) {
-                        subscribers[propKey].forEach(cb => cb(target));
-                    }
+                    const result = Reflect.set(target, prop, toRaw(value), receiver);
+                    notify(propKey, target);
                     return result;
                 }
             });
@@ -1449,7 +1500,7 @@
     }
 
     function writeForeachRowValue(rowInfo, target, key, evt) {
-        const { item, row, alias } = rowInfo;
+        const { item, alias } = rowInfo;
         let val;
 
         if (target.type === 'checkbox') {
@@ -1480,11 +1531,9 @@
             return;
         }
 
+        // item is the array's item proxy, so this write re-renders every list
+        // bound to the array (incl. a text: display of the same field)
         item[window.jsRibbonState.rowFieldKey(alias, key)] = val;
-
-        // Re-sync the rest of this row's bindings (e.g. a text: display of the
-        // same field) — scoped to this one row, not a full list re-render.
-        window.jsRibbonState.bindRowFields(row, item, alias);
     }
 
     function hasExpectedParent(el, expectedParent) {
