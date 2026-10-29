@@ -72,8 +72,9 @@ Two IIFEs, all in one file:
      `applyReadOnly`, `applyDisabled`, `applyCheckboxToggle`).
    - `resolvePath(el, "parent.key")` / `resolveMethod(el, "parent.method")`
      implement cross-component reads: they title-case the dotted prefix and
-     walk `parentElement` looking for an ancestor whose `data-bind` contains
-     `component:ThatName`. **This is the composition mechanism** — there is
+     walk `parentElement` for an ancestor whose `getComponentName(el)` is
+     exactly `ThatName` (so `layout.x` never matches `LayoutSidebar`, and
+     `layout1.x` is how you reach `Layout1`). **This is the composition mechanism** — there is
      no separate `context:` attribute; resolution is purely name-matching
      off the dotted key itself.
    - `resolvePath` returns `undefined` (with a `console.warn`) if the
@@ -126,8 +127,10 @@ Two IIFEs, all in one file:
      needed for a dotted (cross-component) `foreach`, e.g. a child
      component doing `foreach:[data:parent.items, as:item]`, where the
      row-reactive array lives on the ancestor's state, not the child's.
-   - Uses its own simpler parser: `parseBindings`/`processBinding`/
-     `splitBindings`/`parseKeyValue`.
+   - `parseBindings`/`processBinding` is the one `data-bind` parser for the
+     whole library (exported on `window.jsRibbonState`, along with
+     `getComponentName`); `splitBindings`/`parseKeyValue` only split the
+     inside of `class:`/`attr:` lists.
    - AJAX form submission is intentionally **not** implemented here — use
      HTMX; jsRibbon's `MutationObserver` auto-hydrates whatever HTMX injects.
 
@@ -150,10 +153,9 @@ Two IIFEs, all in one file:
    - `hardFail` (default false) + `componentMarkupRegistry` enforce that all
      instances of a same-named component share identical markup structure —
      a guard specifically for "backend template drifted" bugs.
-   - Uses a second, richer parser (`parseDataBind`/`parseBracketExpression`/
-     `splitTopLevel`) — but **only** to read the `component:` value off the
-     root element, not for general binding parsing. See "Known issues" below
-     — this is a real divergence, not an intentional split.
+   - Reads `component:`/`parent:` through the binding engine's
+     `parseBindings` (`getComponentInfo`); there is no second parser.
+     `component:` must be a plain identifier.
 
 ## `data-bind` syntax quick reference
 
@@ -181,25 +183,21 @@ Found by close reading against the stated project philosophy; fixed items
 removed from this list as of the 2026-08-21 cleanup pass (see git history for
 the diff). Still open:
 
-1. Two separate `data-bind` parsers exist (`parseBindings` vs.
-   `parseDataBind`); only the latter supports `as`/wildcards, and it's only
-   used for the `component:` value. New binding syntax added to one won't
-   automatically apply to the other.
-2. No component lifecycle hooks (`onMount`/`onDestroy`), by decision: the
+1. No component lifecycle hooks (`onMount`/`onDestroy`), by decision: the
    factory already runs on mount, and HTMX's `htmx:beforeCleanupElement`
    covers teardown.
-3. No automated tests; `examples/*.html` are manual/console-driven only.
+2. No automated tests; `examples/*.html` are manual/console-driven only.
    Headless Chrome works for scripted checks: a page that runs assertions
    and writes them into the DOM, read back with
    `chrome --headless=new --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file:///...`. If
    you touch `renderForeach`/`bindRowFields`/`resolvePath`/the two parsers,
    manually exercise the relevant `examples/*.html` file(s) in a browser —
    there's no regression net yet.
-4. Global, unscoped module state (`componentMap`/`componentKeys`/
+3. Global, unscoped module state (`componentMap`/`componentKeys`/
    `componentMarkupRegistry`/`initializedElements`) — fine for one page/one
    app, but no story for multiple independent jsRibbon instances on one page
    beyond `reset()`.
-5. Mutating a field on a foreach item (`state.items[0].name = 'x'`) does not
+4. Mutating a field on a foreach item (`state.items[0].name = 'x'`) does not
    re-render; items are plain objects. Replacing the item
    (`state.items[0] = {...}`) or any array method does.
 

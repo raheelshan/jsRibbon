@@ -326,6 +326,13 @@
             .join('');
     }
 
+    // Exact name from component:Name (null if not a component root). Exact
+    // match matters: a substring test would let "layout.x" hit LayoutSidebar.
+    function getComponentName(el) {
+        const attr = el.getAttribute?.('data-bind');
+        return attr ? (parseBindings(attr).component || null) : null;
+    }
+
     function resolvePath(componentEl, fullKey) {
 
         const parts = fullKey.split('.');
@@ -338,7 +345,7 @@
             let parent = componentEl.parentElement;
 
             while (parent) {
-                if (parent.$state && parent.getAttribute('data-bind')?.includes(`component:${parentContext}`)) {
+                if (parent.$state && getComponentName(parent) === parentContext) {
                     // A subscription on an ancestor outlives this component unless
                     // removed, so record it on the component that owns the binding;
                     // unregisterComponent runs these when it's swapped out.
@@ -370,7 +377,7 @@
         let parent = componentEl.parentElement;
 
         while (parent) {
-            if (parent.$state && parent.getAttribute('data-bind')?.includes(`component:${parentContext}`)) {
+            if (parent.$state && getComponentName(parent) === parentContext) {
                 return parent.$ctx[methodName];
             }
             parent = parent.parentElement;
@@ -1355,7 +1362,8 @@
         parseBindings,
         resolveMethod,
         bindRowFields,
-        rowFieldKey
+        rowFieldKey,
+        getComponentName
     };
 })();
 
@@ -1381,135 +1389,6 @@
             + '(' + children.map(markupSignature).join(',') + ')';
     }
 
-    // ---------- jsRibbon binding parser (supports "as" for alias, "=>" for mapping) ----------
-    function splitTopLevel(s) {
-        if (!s || typeof s !== 'string') return [];
-        const parts = [];
-        let cur = '', depth = 0, quote = null;
-        for (let i = 0; i < s.length; i++) {
-            const ch = s[i];
-            if (quote) {
-                cur += ch;
-                if (ch === quote && s[i - 1] !== '\\') quote = null;
-                continue;
-            }
-            if (ch === '"' || ch === "'") { quote = ch; cur += ch; continue; }
-            if (ch === '[' || ch === '{' || ch === '(') { depth++; cur += ch; continue; }
-            if (ch === ']' || ch === '}' || ch === ')') { depth = Math.max(0, depth - 1); cur += ch; continue; }
-            if (ch === ',' && depth === 0) { if (cur.trim()) parts.push(cur.trim()); cur = ''; continue; }
-            cur += ch;
-        }
-        if (cur.trim()) parts.push(cur.trim());
-        return parts;
-    }
-
-    function stripQuotes(s) {
-        return (s || '').replace(/^\s*['"]?|['"]?\s*$/g, '').trim();
-    }
-
-    // parse a single token in a bracket list
-    // returns { kind: 'alias'|'map'|'plain'|'wildcard', source, target }
-    function parseListToken(token) {
-        const t = token.trim();
-        if (!t) return null;
-
-        // wildcard
-        if (/^\*$/i.test(t) || /^['"]\*['"]$/.test(t)) {
-            return { kind: 'wildcard' };
-        }
-
-        // "as" alias:  left as right   (aliasing: left = source name, right = alias name)
-        const asMatch = t.match(/^(.+?)\s+as\s+(.+)$/i);
-        if (asMatch) {
-            return { kind: 'alias', source: stripQuotes(asMatch[1]), target: stripQuotes(asMatch[2]) };
-        }
-
-        // mapping "=>" : left => right  (mapping: left = source observable, right = target DOM name)
-        const mapMatch = t.match(/^(.+?)\s*=>\s*(.+)$/);
-        if (mapMatch) {
-            return { kind: 'map', source: stripQuotes(mapMatch[1]), target: stripQuotes(mapMatch[2]) };
-        }
-
-        // fallback: maybe "key: value" inside list (support legacy forms like "data: fruits")
-        const colonMatch = t.match(/^(.+?)\s*:\s*(.+)$/);
-        if (colonMatch) {
-            // treat as map with left=rhs? or left=rhs? We'll keep RHS as the "source value"
-            // To be consistent with "left = source" rule, interpret "key: value" as (source=value, target=key)
-            // i.e. "data: fruits" -> source: "fruits", target: "data"
-            return { kind: 'map', source: stripQuotes(colonMatch[2]), target: stripQuotes(colonMatch[1]) };
-        }
-
-        // plain token: source and target are the same name (e.g., expose:[ firstName ])
-        const id = stripQuotes(t);
-        return { kind: 'plain', source: id, target: id };
-    }
-
-    // parse a bracket expression like "[ firstName as fName, lastName ]"
-    function parseBracketExpression(raw) {
-        const inner = raw.replace(/^\s*\[|\]\s*$/g, '').trim();
-        if (inner === '') return { type: 'list', items: [] };
-        const parts = splitTopLevel(inner);
-        const items = [];
-        let hasWildcard = false;
-        for (const p of parts) {
-            const token = parseListToken(p);
-            if (!token) continue;
-            if (token.kind === 'wildcard') { hasWildcard = true; continue; }
-            items.push(token);
-        }
-        if (hasWildcard) return { type: 'wildcard', items };
-        return { type: 'list', items };
-    }
-
-    // parse a single binding value (could be bracketed list or plain ident)
-    function parseBindingValue(raw) {
-        if (raw == null) return { type: 'raw', raw: '' };
-        const s = raw.trim();
-        if (!s) return { type: 'raw', raw: '' };
-
-        // bracket expression
-        if (s[0] === '[' && s[s.length - 1] === ']') {
-            return parseBracketExpression(s);
-        }
-
-        // quoted or unquoted single ident: "firstName" or 'firstName' or user.name
-        return { type: 'ident', name: stripQuotes(s) };
-    }
-
-    // public parse function: "text:accepted, class:[ isHidden => hidden ]"
-    function parseDataBind(attr) {
-        const out = {};
-        if (!attr || typeof attr !== 'string') return out;
-        const entries = splitTopLevel(attr);
-
-        for (const e of entries) {
-            // find top-level ':' that separates bindingName : bindingValue
-            // we deliberately allow only top-level colon (not inside brackets)
-            let idx = -1, depth = 0, quote = null;
-            for (let i = 0; i < e.length; i++) {
-                const ch = e[i];
-                if (quote) {
-                    if (ch === quote && e[i - 1] !== '\\') quote = null;
-                    continue;
-                }
-                if (ch === '"' || ch === "'") { quote = ch; continue; }
-                if (ch === '[' || ch === '{' || ch === '(') { depth++; continue; }
-                if (ch === ']' || ch === '}' || ch === ')') { depth = Math.max(0, depth - 1); continue; }
-                if (ch === ':' && depth === 0) { idx = i; break; }
-            }
-            if (idx === -1) {
-                // bare token: treat as literal enable flag
-                out[e.trim()] = { type: 'literal', value: true };
-                continue;
-            }
-            const key = e.slice(0, idx).trim();
-            const valRaw = e.slice(idx + 1).trim();
-            out[key] = parseBindingValue(valRaw);
-        }
-
-        return out;
-    }
-
     function parseDataset(dataset) {
         const parsed = {};
 
@@ -1528,26 +1407,10 @@
         return parsed;
     }
 
-    function getComponentNameFrom(el) {
-        const dataBind = el.getAttribute?.('data-bind')?.trim();
-        const parsed = parseDataBind(dataBind || '');
-        return parsed.component || null;
-    }
-
+    // Same parser as the binding engine, so component:/parent: read exactly
+    // like every other binding
     function getComponentInfo(el) {
-        const dataBind = el.getAttribute?.('data-bind')?.trim();
-        const parsed = parseDataBind(dataBind || '');
-        return parsed;
-    }
-
-    function findParentComponent(el, parentName) {
-        let current = el.parentElement;
-        while (current) {
-            const name = getComponentNameFrom(current);
-            if (name === parentName) return current;
-            current = current.parentElement;
-        }
-        return null;
+        return window.jsRibbonState.parseBindings(el.getAttribute?.('data-bind') || '');
     }
 
     function resolveForeachRow(el, target) {
@@ -1627,12 +1490,8 @@
     function hasExpectedParent(el, expectedParent) {
         let parent = el.parentElement;
         while (parent) {
-            const dataBind = parent.getAttribute?.('data-bind')?.trim();
-            if (dataBind) {
-                const match = dataBind.match(/component\s*:\s*([\w-]+)/i);
-                if (match && match[1] === expectedParent) {
-                    return true;
-                }
+            if (window.jsRibbonState.getComponentName(parent) === expectedParent) {
+                return true;
             }
             parent = parent.parentElement;
         }
@@ -1643,40 +1502,34 @@
         if (initializedElements.has(el)) return;
 
         const info = getComponentInfo(el);
-        const componentInfo = info.component;
+        const name = info.component;
         const key = el.getAttribute?.('data-key');
 
-        if (!componentInfo) return;
-
-        const { type, name } = componentInfo;
+        // plain identifiers only (component:Cart), same rule as before
+        if (!name || !/^[\w-]+$/.test(name)) return;
 
         // 🧠 Check for markup consistency among same-named components
-        if (type === 'ident' && name) {
-            const currentMarkup = Array.from(el.children).map(markupSignature).join(',');
-            if (componentMarkupRegistry.has(name)) {
-                const storedMarkup = componentMarkupRegistry.get(name);
-                if (storedMarkup !== currentMarkup) {
-                    const message =
-                        `❌ JS Ribbon Error: Component "${name}" detected with multiple markup structures.\n` +
-                        `→ Ensure backend uses consistent HTML for this component.\n` +
-                        `⚠️ Offending element:`;
+        const currentMarkup = Array.from(el.children).map(markupSignature).join(',');
+        if (componentMarkupRegistry.has(name)) {
+            const storedMarkup = componentMarkupRegistry.get(name);
+            if (storedMarkup !== currentMarkup) {
+                const message =
+                    `❌ JS Ribbon Error: Component "${name}" detected with multiple markup structures.\n` +
+                    `→ Ensure backend uses consistent HTML for this component.\n` +
+                    `⚠️ Offending element:`;
 
-                    if (window.jsRibbon.hardFail) {
-                        // 🚨 Hard fail: stop everything
-                        throw new Error(message, { cause: el });
-                        return; // ⬅️ Skip binding for this component
-                    } else {
-                        // ⚠️ Soft fail: warn and skip only this component
-                        console.warn(message, el);
-                    }
+                if (window.jsRibbon.hardFail) {
+                    // 🚨 Hard fail: stop everything
+                    throw new Error(message, { cause: el });
+                    return; // ⬅️ Skip binding for this component
+                } else {
+                    // ⚠️ Soft fail: warn and skip only this component
+                    console.warn(message, el);
                 }
-            } else {
-                componentMarkupRegistry.set(name, currentMarkup);
             }
+        } else {
+            componentMarkupRegistry.set(name, currentMarkup);
         }
-
-
-        if (type != 'ident') return;
 
         // Prevent duplicate by key
         if (key) {
@@ -1828,7 +1681,7 @@
         if (!initializedElements.has(el)) return;
 
         const info = getComponentInfo(el);
-        const name = info.component?.name;
+        const name = info.component;
         const key = el.getAttribute?.('data-key');
 
         if (!name) return;
